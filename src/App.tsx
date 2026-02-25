@@ -1,5 +1,6 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { useIsMobile } from './hooks/use-mobile';
 import { createClient } from '@supabase/supabase-js';
 import { marked } from 'marked';
 marked.setOptions({ breaks: true, gfm: true });
@@ -196,6 +197,7 @@ export default function Sara() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [errMsg, setErrMsg] = useState('');
   const [activeTemplate, setActiveTemplate] = useState<MarketTemplate | null>(null);
+  const isMobile = useIsMobile();
   const endRef = useRef<HTMLDivElement>(null);
 
   const sb = cfg.supabaseUrl && cfg.supabaseKey ? createClient(cfg.supabaseUrl, cfg.supabaseKey) : null;
@@ -323,7 +325,7 @@ export default function Sara() {
   // RENDER
   // ════════════════════════════════════════════════════════════════════════
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', fontFamily: 'var(--f-body)' }} className="grain">
+    <div style={{ display: 'flex', flexDirection: 'column', height: isMobile ? '100dvh' : '100vh', background: 'var(--bg)', fontFamily: 'var(--f-body)', overflow: isMobile ? 'auto' : undefined }} className="grain">
 
       {/* TOP BAR */}
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', height: 56, background: 'var(--surface)', borderBottom: '1px solid var(--border)', flexShrink: 0, boxShadow: 'var(--shadow-sm)', zIndex: 10 }}>
@@ -372,7 +374,7 @@ export default function Sara() {
       </header>
 
       {/* MAIN */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', flexDirection: isMobile ? 'column' : 'row' }}>
 
         {/* AGENTS SIDEBAR */}
         {tab === 'chat' && (
@@ -405,12 +407,12 @@ export default function Sara() {
           </aside>
         )}
 
-        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: isMobile ? 'auto' : 'hidden', WebkitOverflowScrolling: 'touch' }}>
 
           {/* ══ CHAT ══════════════════════════════════════════════════════ */}
           {tab === 'chat' && (
             <>
-              <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+              <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? 16 : 24, WebkitOverflowScrolling: 'touch' }}>
                 {msgs.length === 0 ? (
                   <ChatEmpty mode={mode} selRepos={selRepos} />
                 ) : (
@@ -456,7 +458,7 @@ export default function Sara() {
 
           {/* ══ ASSOCIATION MARKET ════════════════════════════════════════ */}
           {tab === 'market' && (
-            <div style={{ flex: 1, overflowY: 'auto' }}>
+            <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
               <MarketTab
                 repos={repos} templates={MARKET_TEMPLATES}
                 assocResult={assocResult} associating={associating}
@@ -471,7 +473,7 @@ export default function Sara() {
 
           {/* ══ REPOS ═════════════════════════════════════════════════════ */}
           {tab === 'repos' && (
-            <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? 16 : 24, WebkitOverflowScrolling: 'touch' }}>
               <ReposTab
                 repos={repos} repoInput={repoInput} setRepoInput={setRepoInput}
                 onSync={syncRepo} syncing={syncing} syncMsg={syncMsg}
@@ -483,7 +485,7 @@ export default function Sara() {
 
           {/* ══ SETTINGS ══════════════════════════════════════════════════ */}
           {tab === 'settings' && (
-            <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? 16 : 24, WebkitOverflowScrolling: 'touch' }}>
               <SettingsTab cfg={cfg} onChange={s => { setCfg(s); saveCfg(s); }} />
             </div>
           )}
