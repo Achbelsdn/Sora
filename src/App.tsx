@@ -1,5 +1,6 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { useIsMobile } from './hooks/use-mobile';
 import { createClient } from '@supabase/supabase-js';
 import { marked } from 'marked';
 marked.setOptions({ breaks: true, gfm: true });
@@ -196,6 +197,7 @@ export default function Sara() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [errMsg, setErrMsg] = useState('');
   const [activeTemplate, setActiveTemplate] = useState<MarketTemplate | null>(null);
+  const isMobile = useIsMobile();
   const endRef = useRef<HTMLDivElement>(null);
 
   const sb = cfg.supabaseUrl && cfg.supabaseKey ? createClient(cfg.supabaseUrl, cfg.supabaseKey) : null;
@@ -258,7 +260,7 @@ export default function Sara() {
     const pt = setInterval(() => { pi++; if (pi < phases.length) setAssocPhase(phases[pi]); else clearInterval(pt); }, 4000);
     try {
       const { data, error: fnErr } = await sb.functions.invoke('associate', {
-        body: { repo_ids: sel, custom_goal: goalOverride ?? assocGoal || undefined },
+        body: { repo_ids: sel, custom_goal: (goalOverride ?? assocGoal) || undefined },
       });
       clearInterval(pt);
       if (fnErr) throw new Error(fnErr.message);
@@ -375,7 +377,7 @@ export default function Sara() {
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
         {/* AGENTS SIDEBAR */}
-        {tab === 'chat' && (
+        {tab === 'chat' && !isMobile && (
           <aside style={{ width: 200, flexShrink: 0, background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
               <p style={{ fontSize: 10, fontFamily: 'var(--f-mono)', color: 'var(--ink3)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{mode === 'multi' ? 'Pipeline' : 'Engine'}</p>
@@ -410,7 +412,7 @@ export default function Sara() {
           {/* ══ CHAT ══════════════════════════════════════════════════════ */}
           {tab === 'chat' && (
             <>
-              <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+              <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? 16 : 24 }}>
                 {msgs.length === 0 ? (
                   <ChatEmpty mode={mode} selRepos={selRepos} />
                 ) : (
@@ -497,6 +499,7 @@ export default function Sara() {
 // CHAT EMPTY
 // ═══════════════════════════════════════════════════════════════════════════
 function ChatEmpty({ mode, selRepos }: { mode: Mode; selRepos: Repo[] }) {
+  const isMobile = useIsMobile();
   return (
     <div style={{ maxWidth: 780, margin: '40px auto 0' }}>
       <div style={{ marginBottom: 32, display: 'flex', alignItems: 'flex-start', gap: 20 }}>
@@ -517,7 +520,7 @@ function ChatEmpty({ mode, selRepos }: { mode: Mode; selRepos: Repo[] }) {
           </div>
         </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 12 : 16 }}>
         {[
           { t: 'Scrape competitor prices live', d: 'Scrapling + TinyFish extract structured data from any site', c: 'var(--red)' },
           { t: 'Build a RAG chatbot', d: 'Supabase pgvector + LangChain + streaming chat interface', c: 'var(--blue)' },
@@ -604,7 +607,7 @@ function MarketTab({ repos, templates, assocResult, associating, assocGoal, setA
   selRepos: Repo[]; onAssociate: () => void; onBuildTemplate: (t: MarketTemplate) => void;
   activeTemplate: MarketTemplate | null;
 }) {
-  const categories = [...new Set(templates.map(t => t.category))];
+  const isMobile = useIsMobile();
   const difficultyColor: Record<string, string> = { starter: 'var(--green)', intermediate: 'var(--amber)', advanced: 'var(--red)' };
 
   return (
@@ -666,7 +669,7 @@ function MarketTab({ repos, templates, assocResult, associating, assocGoal, setA
 
         {/* Pre-built templates */}
         <h3 style={{ fontFamily: 'var(--f-head)', fontSize: 18, fontWeight: 600, color: 'var(--ink)', marginBottom: 16 }}>Ready-to-Build Templates</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(280px, 1fr))', gap: isMobile ? 12 : 16 }}>
           {templates.map(t => {
             const isActive = activeTemplate?.id === t.id;
             return (
