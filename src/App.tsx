@@ -121,11 +121,20 @@ const MARKET_TEMPLATES: MarketTemplate[] = [
 
 // ── Defaults & persistence ────────────────────────────────────────────────
 const DEFAULTS: Settings = {
-  supabaseUrl: '', supabaseKey: '', groqKey: '',
-  githubToken: '', tinyfishKey: '', scraplingKey: '',
-  model: 'llama-3.3-70b-versatile', temperature: 0.7, maxTokens: 4096,
-  systemPrompt: '', contextWindow: 10, ragChunks: 5,
-  webEnabled: true, scrapingEnabled: true,
+  supabaseUrl: import.meta.env.VITE_SUPABASE_URL ?? '',
+  supabaseKey: import.meta.env.VITE_SUPABASE_KEY ?? '',
+  groqKey: import.meta.env.VITE_GROQ_KEY ?? '',
+  githubToken: import.meta.env.VITE_GITHUB_TOKEN ?? '',
+  tinyfishKey: import.meta.env.VITE_TINYFISH_KEY ?? '',
+  scraplingKey: import.meta.env.VITE_SCRAPLING_KEY ?? '',
+  model: 'llama-3.3-70b-versatile',
+  temperature: 0.7,
+  maxTokens: 4096,
+  systemPrompt: '',
+  contextWindow: 10,
+  ragChunks: 5,
+  webEnabled: true,
+  scrapingEnabled: true,
   persona: 'engineer',
 };
 function loadCfg(): Settings { try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('sara2_cfg') ?? '{}') }; } catch { return DEFAULTS; } }
