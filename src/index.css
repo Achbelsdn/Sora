@@ -232,3 +232,94 @@ body {
 .nav-item:hover  { background: var(--s3); }
 .nav-item.active { background: var(--red-s); color: var(--red); }
 .nav-item.active svg { color: var(--red); }
+
+/* ══════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE — breakpoint 768px
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Fix iOS Safari 100vh bug */
+html, body, #root {
+  height: 100%;
+  height: -webkit-fill-available;
+}
+
+/* Disable hover transforms on touch devices (prevents glitches) */
+@media (hover: none) and (pointer: coarse) {
+  .btn-primary:hover { transform: none; box-shadow: none; background: var(--ink); }
+  .btn-red:hover     { transform: none; box-shadow: none; background: var(--red); }
+  .btn-ghost:hover   { background: transparent; }
+  .market-card:hover { transform: none; box-shadow: var(--shadow-sm); border-color: var(--border); }
+}
+
+@media (max-width: 768px) {
+  /* Header mobile */
+  .sara-header {
+    padding: 0 12px !important;
+    height: 52px !important;
+    flex-wrap: nowrap;
+  }
+
+  /* Hide the subtitle "Groq · LLaMA..." on mobile */
+  .sara-header-subtitle { display: none; }
+
+  /* Nav tabs: horizontal scroll on mobile */
+  .sara-nav {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    max-width: 160px;
+  }
+  .sara-nav::-webkit-scrollbar { display: none; }
+  .sara-nav button { font-size: 11px !important; padding: 5px 8px !important; white-space: nowrap; }
+
+  /* Mode toggle: more compact */
+  .sara-mode-toggle button { padding: 4px 8px !important; font-size: 11px !important; }
+
+  /* Status dot: hide the "live/offline" text */
+  .sara-status-text { display: none; }
+
+  /* Sidebar agents: hide on mobile */
+  .sara-sidebar { display: none !important; }
+
+  /* Chat area reduced padding */
+  .sara-chat-area { padding: 12px !important; }
+
+  /* Input bar mobile */
+  .sara-input-bar { padding: 10px 12px 16px !important; }
+  .sara-input-bar > div { gap: 6px !important; }
+  .sara-input-bar textarea { font-size: 16px !important; } /* prevents iOS zoom */
+  .sara-input-bar p { display: none; } /* hide the footer text */
+
+  /* Cards grid: 1 column on mobile */
+  .sara-suggestions-grid { grid-template-columns: 1fr !important; }
+
+  /* Chat messages max-width */
+  .sara-messages-container { padding: 0 !important; }
+
+  /* Markdown: code blocks horizontal scroll */
+  .sara-md pre { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .sara-md table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Repos tab */
+  .sara-repos-grid { grid-template-columns: 1fr !important; }
+
+  /* Market tab: 1 column */
+  .sara-market-grid { grid-template-columns: 1fr !important; }
+
+  /* Agent bar horizontal scroll on mobile */
+  .sara-agent-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+@media (max-width: 480px) {
+  /* Hide text labels in nav, keep only icons on very small screens */
+  .sara-nav-label { display: none; }
+
+  /* Logo: hide the text "Sara 1.0 02B", keep only the S */
+  .sara-logo-text { display: none; }
+
+  /* Input full height on very small screens */
+  .sara-input { min-height: 44px; font-size: 16px !important; }
+
+  /* Send button: icon only */
+  .sara-send-label { display: none; }
+}
