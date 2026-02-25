@@ -326,28 +326,28 @@ export default function Sara() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', fontFamily: 'var(--f-body)' }} className="grain">
 
       {/* TOP BAR */}
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', height: 56, background: 'var(--surface)', borderBottom: '1px solid var(--border)', flexShrink: 0, boxShadow: 'var(--shadow-sm)', zIndex: 10 }}>
+      <header className="sara-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', height: 56, background: 'var(--surface)', borderBottom: '1px solid var(--border)', flexShrink: 0, boxShadow: 'var(--shadow-sm)', zIndex: 10 }}>
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 34, height: 34, borderRadius: 10, background: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <span style={{ fontFamily: 'var(--f-head)', fontWeight: 800, fontSize: 17, color: 'white' }}>S</span>
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="sara-logo-text" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontFamily: 'var(--f-head)', fontWeight: 700, fontSize: 16, color: 'var(--ink)', letterSpacing: '-0.01em' }}>Sara</span>
               <span className="chip chip-ink" style={{ fontSize: 10 }}>1.0 02B</span>
             </div>
-            <p style={{ fontSize: 10, color: 'var(--ink3)', fontFamily: 'var(--f-mono)', lineHeight: 1, marginTop: 1 }}>Groq · LLaMA 3.3 70B · Scrapling · TinyFish</p>
+            <p className="sara-header-subtitle" style={{ fontSize: 10, color: 'var(--ink3)', fontFamily: 'var(--f-mono)', lineHeight: 1, marginTop: 1 }}>Groq · LLaMA 3.3 70B · Scrapling · TinyFish</p>
           </div>
         </div>
 
         {/* Nav */}
-        <nav style={{ display: 'flex', gap: 4, background: 'var(--bg2)', padding: 4, borderRadius: 10 }}>
+        <nav className="sara-nav" style={{ display: 'flex', gap: 4, background: 'var(--bg2)', padding: 4, borderRadius: 10 }}>
           {([['chat', 'chat', 'Chat'], ['market', 'layers', 'Association Market'], ['repos', 'repos', `Repos${repos.length > 0 ? ` (${repos.length})` : ''}`], ['settings', 'settings', 'Settings']] as [Tab, string, string][]).map(([t, icon, label]) => (
             <button key={t} onClick={() => setTab(t)}
               style={{ padding: '6px 14px', borderRadius: 7, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 500, fontFamily: 'var(--f-body)', transition: 'all 0.15s', background: tab === t ? 'var(--surface)' : 'transparent', color: tab === t ? 'var(--ink)' : 'var(--ink3)', boxShadow: tab === t ? 'var(--shadow-sm)' : 'none' }}>
               <Icon name={icon} size={14} />
-              {label}
+              <span className="sara-nav-label">{label}</span>
             </button>
           ))}
         </nav>
@@ -355,7 +355,7 @@ export default function Sara() {
         {/* Right */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {/* Mode toggle */}
-          <div style={{ display: 'flex', background: 'var(--bg2)', padding: 3, borderRadius: 8, gap: 2 }}>
+          <div className="sara-mode-toggle" style={{ display: 'flex', background: 'var(--bg2)', padding: 3, borderRadius: 8, gap: 2 }}>
             {(['solo', 'multi'] as Mode[]).map(m => (
               <button key={m} onClick={() => setMode(m)}
                 style={{ padding: '5px 12px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'var(--f-mono)', transition: 'all 0.15s', background: mode === m ? (m === 'solo' ? 'var(--ink)' : 'var(--red)') : 'transparent', color: mode === m ? 'white' : 'var(--ink3)' }}>
@@ -366,7 +366,7 @@ export default function Sara() {
           {/* Status */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div className={isConnected ? 'dot-live' : 'dot-err'} />
-            <span style={{ fontSize: 11, color: 'var(--ink3)', fontFamily: 'var(--f-mono)' }}>{isConnected ? 'live' : 'offline'}</span>
+            <span className="sara-status-text" style={{ fontSize: 11, color: 'var(--ink3)', fontFamily: 'var(--f-mono)' }}>{isConnected ? 'live' : 'offline'}</span>
           </div>
         </div>
       </header>
@@ -376,7 +376,7 @@ export default function Sara() {
 
         {/* AGENTS SIDEBAR */}
         {tab === 'chat' && (
-          <aside style={{ width: 200, flexShrink: 0, background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <aside className="sara-sidebar" style={{ width: 200, flexShrink: 0, background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
               <p style={{ fontSize: 10, fontFamily: 'var(--f-mono)', color: 'var(--ink3)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{mode === 'multi' ? 'Pipeline' : 'Engine'}</p>
             </div>
@@ -410,11 +410,11 @@ export default function Sara() {
           {/* ══ CHAT ══════════════════════════════════════════════════════ */}
           {tab === 'chat' && (
             <>
-              <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+              <div className="sara-chat-area" style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
                 {msgs.length === 0 ? (
                   <ChatEmpty mode={mode} selRepos={selRepos} />
                 ) : (
-                  <div style={{ maxWidth: 780, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  <div className="sara-messages-container" style={{ maxWidth: 780, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
                     {msgs.map(m => <ChatBubble key={m.id} msg={m} />)}
                     {loading && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -432,7 +432,7 @@ export default function Sara() {
                 )}
               </div>
               {/* Input bar */}
-              <div style={{ flexShrink: 0, padding: '16px 24px 20px', background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
+              <div className="sara-input-bar" style={{ flexShrink: 0, padding: '16px 24px 20px', background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
                 {errMsg && <div style={{ marginBottom: 10, padding: '8px 14px', borderRadius: 8, background: 'var(--red-s)', border: '1px solid var(--red-m)', color: 'var(--red)', fontSize: 12, fontFamily: 'var(--f-mono)' }}>{errMsg}</div>}
                 <div style={{ maxWidth: 780, margin: '0 auto', display: 'flex', gap: 10 }}>
                   <textarea value={input} onChange={e => setInput(e.target.value)}
@@ -444,7 +444,7 @@ export default function Sara() {
                   />
                   <button onClick={send} disabled={!input.trim() || loading} className="btn-primary"
                     style={{ padding: '0 20px', display: 'flex', alignItems: 'center', gap: 8, alignSelf: 'stretch', flexShrink: 0 }}>
-                    {loading ? <><Spin /> Wait</> : <><Icon name="send" size={14} /> Send</>}
+                    {loading ? <><Spin /> Wait</> : <><Icon name="send" size={14} /> <span className="sara-send-label">Send</span></>}
                   </button>
                 </div>
                 <p style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: 'var(--ink4)', fontFamily: 'var(--f-mono)' }}>
@@ -517,7 +517,7 @@ function ChatEmpty({ mode, selRepos }: { mode: Mode; selRepos: Repo[] }) {
           </div>
         </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div className="sara-suggestions-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         {[
           { t: 'Scrape competitor prices live', d: 'Scrapling + TinyFish extract structured data from any site', c: 'var(--red)' },
           { t: 'Build a RAG chatbot', d: 'Supabase pgvector + LangChain + streaming chat interface', c: 'var(--blue)' },
