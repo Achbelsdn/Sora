@@ -2,6 +2,22 @@
 
 **Sara** = LLaMA 3.3 70B + Supabase + TinyFish + Scrapling + GitHub RAG + 4-Agent pipeline
 
+## Setup rapide
+
+### 1. Variables d'environnement (obligatoire)
+
+```bash
+cp .env.example .env
+```
+
+Puis remplir `.env` :
+```
+VITE_SUPABASE_URL=https://xxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGci...
+```
+
+> Les clés Groq/TinyFish/GitHub sont configurées **côté serveur** dans Supabase Dashboard → Edge Functions → Secrets. Elles ne transitent JAMAIS par le frontend.
+
 ## Absorbed Repos
 | Repo | Power gained |
 |------|-------------|
