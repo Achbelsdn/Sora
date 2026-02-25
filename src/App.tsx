@@ -267,7 +267,7 @@ export default function Sara() {
     const pt = setInterval(() => { pi++; if (pi < phases.length) setAssocPhase(phases[pi]); else clearInterval(pt); }, 4000);
     try {
       const { data, error: fnErr } = await sb.functions.invoke('associate', {
-        body: { repo_ids: sel, custom_goal: goalOverride ?? assocGoal || undefined },
+        body: { repo_ids: sel, custom_goal: goalOverride ?? (assocGoal || undefined) },
       });
       clearInterval(pt);
       if (fnErr) throw new Error(fnErr.message);
@@ -394,7 +394,7 @@ export default function Sara() {
                 if (mode === 'solo' && id !== 'synthesizer') return null;
                 const s = aStatus[id];
                 return (
-                  <div key={id} style={{ padding: '10px 12px', borderRadius: 10, border: `1px solid ${s !== 'idle' ? a.color + '30' : 'var(--border)'}`, background: s !== 'idle' ? a.color + '08' : 'var(--bg)', transition: 'all 0.2s' }}>
+                  <div key={id} style={{ padding: '10px 12px', borderRadius: 10, border: `1px solid ${s !== 'idle' ? a.color + '30' : 'var(--border)'}`, background: s !== 'idle' ? a.color + '08' : 'var(--bg)', transition: 'all 0.2s' }} className={s === 'thinking' ? 'animate-pulse-glow' : ''}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                       <span style={{ fontSize: 14 }}>{a.icon}</span>
                       <span style={{ fontSize: 11, fontWeight: 600, color: s !== 'idle' ? a.color : 'var(--ink2)', fontFamily: 'var(--f-body)', flex: 1 }}>{a.label}</span>
@@ -431,8 +431,8 @@ export default function Sara() {
                           <span style={{ fontFamily: 'var(--f-head)', fontWeight: 800, fontSize: 14, color: 'white' }}>S</span>
                         </div>
                         <div style={{ padding: '10px 16px', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                          {[0, 1, 2].map(i => <div key={i} className="dot-live" style={{ width: 6, height: 6, animationDelay: `${i * 0.2}s` }} />)}
-                          <span style={{ fontSize: 13, color: 'var(--ink3)', fontFamily: 'var(--f-mono)' }}>Sara thinking…</span>
+                          {[0, 1, 2].map(i => <div key={i} className="dot-bounce dot-thinking" />)}
+                          <span style={{ fontSize: 13, color: 'var(--ink3)', fontFamily: 'var(--f-mono)', marginLeft: 4 }}>Sara thinking…</span>
                         </div>
                       </div>
                     )}
@@ -553,7 +553,7 @@ function ChatBubble({ msg }: { msg: Msg }) {
   const isUser = msg.role === 'user';
 
   return (
-    <div className="anim-up">
+    <div className="anim-up animate-fade-slide-in">
       {isUser ? (
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <div style={{ maxWidth: '72%', padding: '12px 16px', borderRadius: '16px 16px 4px 16px', background: 'var(--ink)', color: 'white', fontSize: 14, lineHeight: 1.6, boxShadow: 'var(--shadow-sm)' }}>
@@ -613,7 +613,6 @@ function MarketTab({ repos, templates, assocResult, associating, assocGoal, setA
   selRepos: Repo[]; onAssociate: () => void; onBuildTemplate: (t: MarketTemplate) => void;
   activeTemplate: MarketTemplate | null;
 }) {
-  const categories = [...new Set(templates.map(t => t.category))];
   const difficultyColor: Record<string, string> = { starter: 'var(--green)', intermediate: 'var(--amber)', advanced: 'var(--red)' };
 
   return (
@@ -860,7 +859,18 @@ function ReposTab({ repos, repoInput, setRepoInput, onSync, syncing, syncMsg, on
 // ═══════════════════════════════════════════════════════════════════════════
 function SettingsTab({ cfg, onChange }: { cfg: Settings; onChange: (s: Settings) => void }) {
   const [local, setLocal] = useState(cfg);
+  const [saved, setSaved] = useState(false);
   const set = (k: keyof Settings, v: string | number | boolean) => setLocal(p => ({ ...p, [k]: v }));
+
+  function handleSave() {
+    onChange(local);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  function handleReset() {
+    setLocal(DEFAULTS);
+  }
 
   function Section({ title, color = 'var(--ink)', children }: { title: string; color?: string; children: React.ReactNode }) {
     return (
@@ -1003,9 +1013,17 @@ TINYFISH_API_KEY=tf_...
 GITHUB_TOKEN=ghp_...`}</pre>
       </div>
 
-      <button className="btn-red" onClick={() => onChange(local)} style={{ width: '100%', padding: '14px 20px', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: 'var(--shadow)' }}>
-        <Icon name="check" size={16} /> Save Configuration
-      </button>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 32 }}>
+        <button className={`btn-red btn-glow${saved ? ' animate-pulse-glow' : ''}`} onClick={handleSave} style={{ flex: 1, padding: '14px 20px', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: 'var(--shadow)', transition: 'all 0.3s' }}>
+          {saved
+            ? <><Icon name="check" size={16} /><span className="animate-fade-slide-in">Paramètres sauvegardés ✓</span></>
+            : <><Icon name="check" size={16} /> Sauvegarder les paramètres</>
+          }
+        </button>
+        <button className="btn-ghost" onClick={handleReset} style={{ padding: '14px 20px', fontSize: 14, flexShrink: 0 }}>
+          Réinitialiser
+        </button>
+      </div>
     </div>
   );
 }

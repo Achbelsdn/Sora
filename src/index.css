@@ -155,11 +155,50 @@ body {
 @keyframes slide-in  { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
 @keyframes float     { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
 
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(139, 26, 26, 0); }
+  50% { box-shadow: 0 0 20px 4px var(--red-m); }
+}
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes dotBounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-6px); }
+}
+@keyframes orb-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .anim-up    { animation: fade-up 0.25s ease-out forwards; }
 .anim-in    { animation: fade-in 0.2s ease-out forwards; }
 .anim-slide { animation: slide-in 0.3s ease-out forwards; }
 .anim-float { animation: float 3s ease-in-out infinite; }
 .anim-spin  { animation: spin 0.9s linear infinite; }
+
+.animate-fade-slide-in { animation: fadeSlideIn 0.3s ease-out forwards; }
+.animate-pulse-glow    { animation: pulse-glow 2s ease-in-out infinite; }
+.animate-shimmer {
+  background: linear-gradient(90deg, var(--surface) 25%, var(--s2) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+.typing-cursor::after {
+  content: '▋';
+  animation: blink 1s step-end infinite;
+  color: var(--red);
+}
+.dot-bounce { animation: dotBounce 1.4s ease-in-out infinite; }
+.dot-bounce:nth-child(2) { animation-delay: 0.2s; }
+.dot-bounce:nth-child(3) { animation-delay: 0.4s; }
+.dot-bounce.dot-thinking { width: 7px; height: 7px; border-radius: 50%; background: var(--red); display: inline-block; }
+.tab-content-enter { animation: fadeSlideIn 0.25s ease-out; }
 
 .shimmer-text {
   background: linear-gradient(90deg, var(--ink2) 25%, var(--ink) 50%, var(--ink2) 75%);
@@ -232,3 +271,32 @@ body {
 .nav-item:hover  { background: var(--s3); }
 .nav-item.active { background: var(--red-s); color: var(--red); }
 .nav-item.active svg { color: var(--red); }
+
+/* ── Glassmorphism ───────────────────────────────── */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(232, 224, 212, 0.8);
+}
+
+/* ── Glow button effect ──────────────────────────── */
+.btn-glow {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+.btn-glow::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(139,26,26,0.15) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.btn-glow:hover::before { opacity: 1; }
+
+/* ── Status indicator dot ────────────────────────── */
+.status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.status-dot.active   { background: var(--green); box-shadow: 0 0 0 3px var(--green-s); animation: pulse-glow 2s ease-in-out infinite; }
+.status-dot.thinking { background: var(--red);   box-shadow: 0 0 0 3px var(--red-s);   animation: pulse-glow 1s ease-in-out infinite; }
