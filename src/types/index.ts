@@ -54,7 +54,9 @@ export interface DebateSession {
   createdAt?: Date | string | number;
 }
 
-export type DocumentType = 'pdf' | 'doc' | 'txt' | 'markdown';
+// DocumentType mis à jour (ajout de 'md' et 'pptx' pour corriger les erreurs)
+export type DocumentType = 'pdf' | 'doc' | 'txt' | 'markdown' | 'md' | 'pptx';
+
 
 // ── Settings ───────────────────────────────────────────────────────
 export interface AppSettings {
