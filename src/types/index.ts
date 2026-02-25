@@ -19,7 +19,7 @@ export interface AgentState {
   tokens?: number;
 }
 
-// ── Chat types (Existing & Missing) ────────────────────────────────
+// ── Chat types ─────────────────────────────────────────────────────
 export interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -32,7 +32,7 @@ export interface Message {
   error?: boolean;
 }
 
-// Ajout des types requis par chatStore.ts
+// Types requis par chatStore.ts et useDocumentGenerator.ts
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
@@ -54,8 +54,6 @@ export interface DebateSession {
   createdAt?: Date | string | number;
 }
 
-// ── Document types ─────────────────────────────────────────────────
-// Requis par useDocumentGenerator.ts
 export type DocumentType = 'pdf' | 'doc' | 'txt' | 'markdown';
 
 // ── Settings ───────────────────────────────────────────────────────
