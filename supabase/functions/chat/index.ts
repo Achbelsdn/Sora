@@ -8,6 +8,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { browseWeb, extractUrls, needsWebBrowsing, formatWebResults } from "../_shared/tinyfish.ts";
+import { SCRAPLING_KNOWLEDGE } from "../_shared/scrapling.ts";
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
@@ -50,10 +51,10 @@ serve(async (req) => {
 
     // ── 1. TinyFish: live web browsing ────────────────────────────────
     let webContext = "";
-    const urlsInMsg = extractUrls(message);
-    const shouldBrowse = needsWebBrowsing(message) && tinyfishKey;
+    const shouldBrowse = !!tinyfishKey && needsWebBrowsing(message);
 
     if (shouldBrowse) {
+      const urlsInMsg = extractUrls(message);
       const targets: Array<{ url: string; goal: string }> = [];
 
       // Browse URLs explicitly mentioned in the message
@@ -62,7 +63,7 @@ serve(async (req) => {
       }
 
       // If the query seems to need live data but no URL given, Sara picks the right site
-      if (targets.length === 0 && needsWebBrowsing(message)) {
+      if (targets.length === 0) {
         const inferredUrl = inferUrl(message);
         if (inferredUrl) targets.push({ url: inferredUrl, goal: message });
       }

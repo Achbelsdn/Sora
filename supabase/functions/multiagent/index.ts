@@ -53,9 +53,15 @@ serve(async (req) => {
     let webContext = "";
     if (tinyfishKey && needsWebBrowsing(message)) {
       const urlsInMsg = extractUrls(message);
-      const targets = urlsInMsg.length > 0
-        ? urlsInMsg.slice(0, 3).map(url => ({ url, goal: `Extract key information for: ${message}` }))
-        : [];
+      const targets: Array<{ url: string; goal: string }> = [];
+
+      if (urlsInMsg.length > 0) {
+        urlsInMsg.slice(0, 3).forEach(url => targets.push({ url, goal: `Extract key information for: ${message}` }));
+      } else {
+        // Infer a URL from message keywords
+        const inferredUrl = inferUrl(message);
+        if (inferredUrl) targets.push({ url: inferredUrl, goal: message });
+      }
 
       if (targets.length > 0) {
         const results = await browseMultiple(targets, tinyfishKey);
@@ -170,3 +176,17 @@ This is what the user sees. Make it outstanding. Use markdown.`,
     return new Response(JSON.stringify({ success: false, error: msg }), { status: 500, headers: cors });
   }
 });
+
+// Heuristic: infer best URL to browse based on message keywords
+function inferUrl(message: string): string | null {
+  const lower = message.toLowerCase();
+  if (lower.includes("amazon") || lower.includes("produit") || lower.includes("product")) return "https://www.amazon.com";
+  if (lower.includes("linkedin")) return "https://www.linkedin.com";
+  if (lower.includes("github")) return "https://github.com/trending";
+  if (lower.includes("hacker news") || lower.includes("hn")) return "https://news.ycombinator.com";
+  if (lower.includes("producthunt") || lower.includes("product hunt")) return "https://www.producthunt.com";
+  if (lower.includes("reddit")) return "https://www.reddit.com";
+  if (lower.includes("news") || lower.includes("actualité")) return "https://news.ycombinator.com";
+  if (lower.includes("twitter") || lower.includes("x.com")) return "https://x.com/explore";
+  return null;
+}
