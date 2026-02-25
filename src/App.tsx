@@ -2,6 +2,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { marked } from 'marked';
+import { ENV, IS_CONFIGURED } from './config';
 marked.setOptions({ breaks: true, gfm: true });
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -121,14 +122,37 @@ const MARKET_TEMPLATES: MarketTemplate[] = [
 
 // ── Defaults & persistence ────────────────────────────────────────────────
 const DEFAULTS: Settings = {
-  supabaseUrl: '', supabaseKey: '', groqKey: '',
-  githubToken: '', tinyfishKey: '', scraplingKey: '',
-  model: 'llama-3.3-70b-versatile', temperature: 0.7, maxTokens: 4096,
-  systemPrompt: '', contextWindow: 10, ragChunks: 5,
-  webEnabled: true, scrapingEnabled: true,
-  persona: 'engineer',
+  supabaseUrl:      ENV.supabaseUrl  || '',
+  supabaseKey:      ENV.supabaseKey  || '',
+  groqKey:          ENV.groqKey      || '',
+  githubToken:      ENV.githubToken  || '',
+  tinyfishKey:      ENV.tinyfishKey  || '',
+  scraplingKey:     '',
+  model:            'llama-3.3-70b-versatile',
+  temperature:      0.7,
+  maxTokens:        4096,
+  systemPrompt:     '',
+  contextWindow:    10,
+  ragChunks:        5,
+  webEnabled:       true,
+  scrapingEnabled:  true,
+  persona:          'engineer',
 };
-function loadCfg(): Settings { try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('sara2_cfg') ?? '{}') }; } catch { return DEFAULTS; } }
+function loadCfg(): Settings {
+  try {
+    const stored = JSON.parse(localStorage.getItem('sara2_cfg') ?? '{}');
+    const merged = { ...DEFAULTS, ...stored };
+    // Les variables ENV ont la priorité sur le localStorage si celui-ci est vide
+    if (!merged.supabaseUrl && ENV.supabaseUrl) merged.supabaseUrl = ENV.supabaseUrl;
+    if (!merged.supabaseKey && ENV.supabaseKey) merged.supabaseKey = ENV.supabaseKey;
+    if (!merged.groqKey && ENV.groqKey)         merged.groqKey = ENV.groqKey;
+    if (!merged.tinyfishKey && ENV.tinyfishKey) merged.tinyfishKey = ENV.tinyfishKey;
+    if (!merged.githubToken && ENV.githubToken) merged.githubToken = ENV.githubToken;
+    return merged;
+  } catch {
+    return DEFAULTS;
+  }
+}
 function saveCfg(s: Settings) { localStorage.setItem('sara2_cfg', JSON.stringify(s)); }
 
 // ── Icon components ───────────────────────────────────────────────────────
@@ -198,7 +222,9 @@ export default function Sara() {
   const [activeTemplate, setActiveTemplate] = useState<MarketTemplate | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
-  const sb = cfg.supabaseUrl && cfg.supabaseKey ? createClient(cfg.supabaseUrl, cfg.supabaseKey) : null;
+  const sbUrl = cfg.supabaseUrl || ENV.supabaseUrl;
+  const sbKey = cfg.supabaseKey || ENV.supabaseKey;
+  const sb = sbUrl && sbKey ? createClient(sbUrl, sbKey) : null;
 
   useEffect(() => { if (sb) loadRepos(); }, [cfg.supabaseUrl, cfg.supabaseKey]);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs]);
@@ -215,7 +241,7 @@ export default function Sara() {
   // ── SEND ────────────────────────────────────────────────────────────────
   const send = useCallback(async () => {
     const text = input.trim();
-    if (!text || loading || !sb) { if (!sb) setErrMsg('Configure Supabase in Settings'); return; }
+    if (!text || loading || !sb) { if (!sb) setErrMsg('Configure Supabase: add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your .env file, or enter them in Settings'); return; }
     setInput(''); resetA(); setErrMsg('');
     setMsgs(p => [...p, { id: `u${Date.now()}`, role: 'user', content: text, ts: Date.now() }]);
     setLoading(true);
@@ -317,7 +343,7 @@ export default function Sara() {
     }
   };
 
-  const isConnected = !!sb;
+  const isConnected = !!sb || IS_CONFIGURED;
 
   // ════════════════════════════════════════════════════════════════════════
   // RENDER
@@ -895,6 +921,16 @@ function SettingsTab({ cfg, onChange }: { cfg: Settings; onChange: (s: Settings)
         <h2 style={{ fontFamily: 'var(--f-head)', fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>Configuration</h2>
         <span className="chip chip-ink">Sara 1.0 02B</span>
       </div>
+
+      {IS_CONFIGURED && (
+        <div style={{ marginBottom: 20, padding: '12px 16px', borderRadius: 10, background: 'var(--green-s)', border: '1px solid rgba(26,122,74,0.25)', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ color: 'var(--green)', fontSize: 16 }}>✓</span>
+          <div>
+            <p style={{ fontWeight: 600, fontSize: 13, color: 'var(--green)' }}>Variables d'environnement chargées</p>
+            <p style={{ fontSize: 11, color: 'var(--ink3)', fontFamily: 'var(--f-mono)', marginTop: 2 }}>VITE_SUPABASE_URL · VITE_SUPABASE_ANON_KEY</p>
+          </div>
+        </div>
+      )}
 
       {/* Supabase */}
       <Section title="◈ Supabase — Backend" color="var(--red)">
