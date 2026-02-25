@@ -258,7 +258,7 @@ export default function Sara() {
     const pt = setInterval(() => { pi++; if (pi < phases.length) setAssocPhase(phases[pi]); else clearInterval(pt); }, 4000);
     try {
       const { data, error: fnErr } = await sb.functions.invoke('associate', {
-        body: { repo_ids: sel, custom_goal: goalOverride ?? assocGoal || undefined },
+        body: { repo_ids: sel, custom_goal: (goalOverride ?? assocGoal) || undefined },
       });
       clearInterval(pt);
       if (fnErr) throw new Error(fnErr.message);
@@ -604,7 +604,7 @@ function MarketTab({ repos, templates, assocResult, associating, assocGoal, setA
   selRepos: Repo[]; onAssociate: () => void; onBuildTemplate: (t: MarketTemplate) => void;
   activeTemplate: MarketTemplate | null;
 }) {
-  const categories = [...new Set(templates.map(t => t.category))];
+  const _categories = [...new Set(templates.map(t => t.category))];
   const difficultyColor: Record<string, string> = { starter: 'var(--green)', intermediate: 'var(--amber)', advanced: 'var(--red)' };
 
   return (
