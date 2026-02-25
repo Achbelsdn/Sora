@@ -604,7 +604,6 @@ function MarketTab({ repos, templates, assocResult, associating, assocGoal, setA
   selRepos: Repo[]; onAssociate: () => void; onBuildTemplate: (t: MarketTemplate) => void;
   activeTemplate: MarketTemplate | null;
 }) {
-  const categories = [...new Set(templates.map(t => t.category))];
   const difficultyColor: Record<string, string> = { starter: 'var(--green)', intermediate: 'var(--amber)', advanced: 'var(--red)' };
 
   return (
