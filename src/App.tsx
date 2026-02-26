@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { marked } from 'marked';
@@ -6,7 +5,7 @@ import { useIsMobile } from './hooks/use-mobile';
 
 marked.setOptions({ breaks: true, gfm: true });
 
-// ── Types ──────────────────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type Tab = 'chat' | 'market' | 'repos' | 'settings';
 type Mode = 'llama' | 'gemini' | 'openrouter' | 'llama-gemini' | 'llama-openrouter' | 'gemini-openrouter' | 'multi';
 type AgentId = 'researcher' | 'analyst' | 'critic' | 'synthesizer';
@@ -49,32 +48,31 @@ interface Settings {
   persona: string;
 }
 
-// ── Agents ─────────────────────────────────────────────────────────────────
+// â”€â”€ Agents â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const AGENTS: Record<AgentId, { label: string; color: string; icon: string }> = {
-  researcher:  { label: 'Researcher',  color: '#1a4a8b', icon: '🔍' },
-  analyst:     { label: 'Architect',   color: '#1a7a4a', icon: '🏗️' },
-  critic:      { label: 'Critic',      color: '#8b1a1a', icon: '⚡' },
-  synthesizer: { label: 'Synthesizer', color: '#7a4a0a', icon: '✦' },
+  researcher:  { label: 'Researcher',  color: '#1a4a8b', icon: 'ðŸ”' },
+  analyst:     { label: 'Architect',   color: '#1a7a4a', icon: 'ðŸ—ï¸' },
+  critic:      { label: 'Critic',      color: '#8b1a1a', icon: 'âš¡' },
+  synthesizer: { label: 'Synthesizer', color: '#7a4a0a', icon: 'âœ¦' },
 };
 
-// ── Market templates ───────────────────────────────────────────────────────
+// â”€â”€ Market templates â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const MARKET_TEMPLATES: MarketTemplate[] = [
-  { id: 'neural-scraper', name: 'NeuralScraper', tagline: 'Web intelligence platform — Scrapling + TinyFish + LLaMA', category: 'Web Intelligence', repos: ['D4Vinci/Scrapling', 'tinyfish-io/tinyfish-cookbook'], difficulty: 'intermediate', color: '#8b1a1a', icon: '🕷️', description: 'Adaptive scraping with anti-bot bypass + AI-powered data extraction. Handles Cloudflare, dynamic JS, auto-recovers broken selectors.' },
-  { id: 'llm-data-forge', name: 'LLM DataForge', tagline: 'Live data pipeline — LLM App + Data Engineer Handbook', category: 'Data Pipeline', repos: ['pathwaycom/llm-app', 'DataExpert-io/data-engineer-handbook'], difficulty: 'advanced', color: '#1a4a8b', icon: '⚙️', description: 'Real-time LLM data pipeline with streaming ingestion, vector indexing, and production data engineering patterns.' },
-  { id: 'agent-academy', name: 'AgentAcademy', tagline: 'AI agent builder — ai-agents-for-beginners + openai-cookbook', category: 'AI Agents', repos: ['microsoft/ai-agents-for-beginners', 'openai/openai-cookbook'], difficulty: 'starter', color: '#1a7a4a', icon: '🤖', description: 'Build autonomous AI agents using Microsoft best practices + OpenAI patterns. Includes tool use, memory, and planning loops.' },
-  { id: 'vision-api', name: 'VisionAPI', tagline: 'Image generation service — Stable Diffusion + SAM + CLIP', category: 'Computer Vision', repos: ['CompVis/stable-diffusion', 'facebookresearch/segment-anything', 'openai/CLIP'], difficulty: 'advanced', color: '#7a4a0a', icon: '🎨', description: 'Image generation + segmentation + understanding pipeline. Generate, segment, and semantically search images in one API.' },
-  { id: 'llm-from-scratch', name: 'TrainYourLLM', tagline: 'Build and train LLMs from scratch', category: 'Foundation Models', repos: ['rasbt/LLMs-from-scratch', 'ggerganov/llama.cpp'], difficulty: 'advanced', color: '#4a1a7a', icon: '🧠', description: 'Full LLM training pipeline from tokenizer to transformer, with llama.cpp for efficient local inference.' },
-  { id: 'data-science-hub', name: 'DataScienceHub', tagline: 'End-to-end ML platform — Python 100 Days + Pandas + TF', category: 'Machine Learning', repos: ['jackfrued/Python-100-Days', 'aymericdamien/TensorFlow-Examples'], difficulty: 'starter', color: '#1a6a4a', icon: '📊', description: 'Complete data science environment with Python best practices, TensorFlow examples, and structured learning path.' },
+  { id: 'neural-scraper', name: 'NeuralScraper', tagline: 'Web intelligence platform â€” Scrapling + TinyFish + LLaMA', category: 'Web Intelligence', repos: ['D4Vinci/Scrapling', 'tinyfish-io/tinyfish-cookbook'], difficulty: 'intermediate', color: '#8b1a1a', icon: 'ðŸ•·ï¸', description: 'Adaptive scraping with anti-bot bypass + AI-powered data extraction. Handles Cloudflare, dynamic JS, auto-recovers broken selectors.' },
+  { id: 'llm-data-forge', name: 'LLM DataForge', tagline: 'Live data pipeline â€” LLM App + Data Engineer Handbook', category: 'Data Pipeline', repos: ['pathwaycom/llm-app', 'DataExpert-io/data-engineer-handbook'], difficulty: 'advanced', color: '#1a4a8b', icon: 'âš™ï¸', description: 'Real-time LLM data pipeline with streaming ingestion, vector indexing, and production data engineering patterns.' },
+  { id: 'agent-academy', name: 'AgentAcademy', tagline: 'AI agent builder â€” ai-agents-for-beginners + openai-cookbook', category: 'AI Agents', repos: ['microsoft/ai-agents-for-beginners', 'openai/openai-cookbook'], difficulty: 'starter', color: '#1a7a4a', icon: 'ðŸ¤–', description: 'Build autonomous AI agents using Microsoft best practices + OpenAI patterns. Includes tool use, memory, and planning loops.' },
+  { id: 'vision-api', name: 'VisionAPI', tagline: 'Image generation service â€” Stable Diffusion + SAM + CLIP', category: 'Computer Vision', repos: ['CompVis/stable-diffusion', 'facebookresearch/segment-anything', 'openai/CLIP'], difficulty: 'advanced', color: '#7a4a0a', icon: 'ðŸŽ¨', description: 'Image generation + segmentation + understanding pipeline. Generate, segment, and semantically search images in one API.' },
+  { id: 'llm-from-scratch', name: 'TrainYourLLM', tagline: 'Build and train LLMs from scratch', category: 'Foundation Models', repos: ['rasbt/LLMs-from-scratch', 'ggerganov/llama.cpp'], difficulty: 'advanced', color: '#4a1a7a', icon: 'ðŸ§ ', description: 'Full LLM training pipeline from tokenizer to transformer, with llama.cpp for efficient local inference.' },
+  { id: 'data-science-hub', name: 'DataScienceHub', tagline: 'End-to-end ML platform â€” Python 100 Days + Pandas + TF', category: 'Machine Learning', repos: ['jackfrued/Python-100-Days', 'aymericdamien/TensorFlow-Examples'], difficulty: 'starter', color: '#1a6a4a', icon: 'ðŸ“Š', description: 'Complete data science environment with Python best practices, TensorFlow examples, and structured learning path.' },
 ];
 
-// ── Env vars — read at module level (Vite inlines at build time) ───────────
+// â”€â”€ Env vars â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const ENV_URL = (import.meta as any).env?.VITE_SUPABASE_URL ?? '';
 const ENV_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY ?? '';
 
-// ── Defaults & persistence ─────────────────────────────────────────────────
+// â”€â”€ Defaults & persistence â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const DEFAULTS: Settings = {
-  supabaseUrl: ENV_URL,
-  supabaseKey: ENV_KEY,
+  supabaseUrl: ENV_URL, supabaseKey: ENV_KEY,
   groqKey: '', githubToken: '', tinyfishKey: '', scraplingKey: '',
   model: 'llama-3.3-70b-versatile', temperature: 0.7, maxTokens: 4096,
   systemPrompt: '', contextWindow: 10, ragChunks: 5,
@@ -84,25 +82,18 @@ const DEFAULTS: Settings = {
 function loadCfg(): Settings {
   try {
     const saved = JSON.parse(localStorage.getItem('sara2_cfg') ?? '{}');
-    return {
-      ...DEFAULTS,
-      ...saved,
-      // Env vars always override cached credentials
-      supabaseUrl: ENV_URL || saved.supabaseUrl || '',
-      supabaseKey: ENV_KEY || saved.supabaseKey || '',
-    };
+    return { ...DEFAULTS, ...saved, supabaseUrl: ENV_URL || saved.supabaseUrl || '', supabaseKey: ENV_KEY || saved.supabaseKey || '' };
   } catch { return DEFAULTS; }
 }
 
 function saveCfg(s: Settings) {
-  // Never persist credentials that come from environment variables
   const toSave: Partial<Settings> = { ...s };
   if (ENV_URL) delete toSave.supabaseUrl;
   if (ENV_KEY) delete toSave.supabaseKey;
   localStorage.setItem('sara2_cfg', JSON.stringify(toSave));
 }
 
-// ── Icons ──────────────────────────────────────────────────────────────────
+// â”€â”€ Icons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function Icon({ name, size = 16, className = '' }: { name: string; size?: number; className?: string }) {
   const paths: Record<string, string> = {
     chat:    'M8 12h8M8 8h12M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5l-4 4V6z',
@@ -137,9 +128,9 @@ function Spin({ size = 14 }: { size?: number }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // MAIN APP
-// ═══════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export default function Sara() {
   const isMobile = useIsMobile();
   const [tab, setTab] = useState<Tab>('chat');
@@ -166,26 +157,40 @@ export default function Sara() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // FIX: useMemo would be better but this avoids recreating on every render
+  // â•â•â• FIX #1: refs manquants â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  const endRef = useRef<HTMLDivElement>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // â•â•â• FIX #2: helpers agent status manquants â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  const setA = useCallback((id: AgentId, status: AgentStatus) => {
+    setAStatus(p => ({ ...p, [id]: status }));
+  }, []);
+
+  const resetA = useCallback(() => {
+    setAStatus({ researcher: 'idle', analyst: 'idle', critic: 'idle', synthesizer: 'idle' });
+  }, []);
+
+  // â•â•â• Supabase client â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const sbRef = useRef<ReturnType<typeof createClient> | null>(null);
+
+  const loadRepos = useCallback(async () => {
+    if (!sbRef.current) return;
+    const { data } = await sbRef.current.from('github_repos').select('*').order('stars', { ascending: false });
+    if (data) setRepos(data.map((r: Repo) => ({ ...r, selected: false })));
+  }, []);
+
   useEffect(() => {
     sbRef.current = (cfg.supabaseUrl && cfg.supabaseKey)
       ? createClient(cfg.supabaseUrl, cfg.supabaseKey)
       : null;
     if (sbRef.current) loadRepos();
-  }, [cfg.supabaseUrl, cfg.supabaseKey]);
+  }, [cfg.supabaseUrl, cfg.supabaseKey, loadRepos]);
 
   const sb = sbRef.current ?? ((cfg.supabaseUrl && cfg.supabaseKey) ? createClient(cfg.supabaseUrl, cfg.supabaseKey) : null);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs]);
 
-  async function loadRepos() {
-    if (!sb) return;
-    const { data } = await sb.from('github_repos').select('*').order('stars', { ascending: false });
-    if (data) setRepos(data.map((r: Repo) => ({ ...r, selected: false })));
-  }
-
-  // ── FILE EXTRACTION ──────────────────────────────────────────────────────
+  // â”€â”€ FILE EXTRACTION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const extractFileContent = async (file: File): Promise<AttachedFile> => {
     const id = `f${Date.now()}_${Math.random().toString(36).slice(2)}`;
     const isImage = file.type.startsWith('image/');
@@ -214,7 +219,6 @@ export default function Sara() {
       try {
         const buf = await file.arrayBuffer();
         const uint8 = new Uint8Array(buf);
-        // Extract raw text from PDF bytes (basic extraction)
         const rawStr = new TextDecoder('utf-8', { fatal: false }).decode(uint8);
         const textMatches = rawStr.match(/\(([^)]{4,500})\)/g) ?? [];
         const text = textMatches
@@ -223,7 +227,7 @@ export default function Sara() {
           .join(' ')
           .replace(/\s+/g, ' ')
           .slice(0, 12000);
-        return { id, name: file.name, type: file.type, size: file.size, content: text || `[PDF: ${file.name} — contenu binaire]`, isImage: false, isText: true };
+        return { id, name: file.name, type: file.type, size: file.size, content: text || `[PDF: ${file.name} â€” contenu binaire]`, isImage: false, isText: true };
       } catch {
         return { id, name: file.name, type: file.type, size: file.size, content: `[PDF: ${file.name}]`, isImage: false, isText: true };
       }
@@ -232,7 +236,6 @@ export default function Sara() {
     if (isExcel) {
       try {
         const buf = await file.arrayBuffer();
-        // Try to read as text CSV first
         const text = new TextDecoder('utf-8', { fatal: false }).decode(buf).slice(0, 8000);
         return { id, name: file.name, type: file.type, size: file.size, content: text, isImage: false, isText: true };
       } catch {
@@ -241,10 +244,9 @@ export default function Sara() {
     }
 
     if (isZip) {
-      return { id, name: file.name, type: file.type, size: file.size, content: `[Archive: ${file.name} — ${(file.size / 1024).toFixed(0)} KB — upload vers Supabase Storage]`, isImage: false, isText: false };
+      return { id, name: file.name, type: file.type, size: file.size, content: `[Archive: ${file.name} â€” ${(file.size / 1024).toFixed(0)} KB]`, isImage: false, isText: false };
     }
 
-    // Fallback: try as text
     try {
       return new Promise(resolve => {
         const reader = new FileReader();
@@ -257,7 +259,7 @@ export default function Sara() {
     }
   };
 
-  const uploadFileToStorage = async (file: File, extracted: AttachedFile): Promise<string | undefined> => {
+  const uploadFileToStorage = async (file: File): Promise<string | undefined> => {
     if (!sb) return undefined;
     try {
       const path = `${sessionId ?? 'anon'}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
@@ -280,7 +282,7 @@ export default function Sara() {
     const results: AttachedFile[] = [];
     for (let i = 0; i < arr.length; i++) {
       const extracted = await extractFileContent(arr[i]);
-      const url = await uploadFileToStorage(arr[i], extracted);
+      const url = await uploadFileToStorage(arr[i]);
       if (url) extracted.url = url;
       extracted.extracting = false;
       results.push(extracted);
@@ -290,14 +292,13 @@ export default function Sara() {
       return match ?? f;
     }));
     setUploading(false);
-    // Auto-send if input is empty
     if (!input.trim() && results.length === 1) {
-      const autoMsg = results[0].isImage ? 'Analyse cette image et décris son contenu en détail.' : `Analyse ce fichier : ${results[0].name}`;
+      const autoMsg = results[0].isImage ? 'Analyse cette image et dÃ©cris son contenu en dÃ©tail.' : `Analyse ce fichier : ${results[0].name}`;
       setInput(autoMsg);
     }
   };
 
-  // ── SEND ─────────────────────────────────────────────────────────────────
+  // â”€â”€ SEND â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const send = useCallback(async () => {
     const text = input.trim();
     const readyFiles = files.filter(f => !f.extracting);
@@ -341,10 +342,9 @@ export default function Sara() {
       }
 
       const t0 = Date.now();
-      // Serialize files for edge function (limit image base64 to avoid payload limits)
       const serializedFiles = readyFiles.map(f => ({
         name: f.name, type: f.type, size: f.size, isImage: f.isImage, isText: f.isText,
-        content: f.isImage ? f.content.slice(0, 500000) : f.content.slice(0, 20000), // ~375KB base64 for images
+        content: f.isImage ? f.content.slice(0, 500000) : f.content.slice(0, 20000),
         url: f.url,
       }));
 
@@ -357,14 +357,14 @@ export default function Sara() {
 
       const { data, error } = await sb.functions.invoke(fn, { body });
 
-      if (timerRef.current) clearInterval(timerRef.current as ReturnType<typeof setInterval>);
+      if (timerRef.current) clearInterval(timerRef.current);
       (Object.keys(AGENTS) as AgentId[]).forEach(k => setA(k, 'done'));
       if (error) throw error;
 
       if (data?.session_id) setSessionId(data.session_id);
       setMsgs(p => [...p, {
         id: `s${Date.now()}`, role: 'sara',
-        content: data?.answer ?? 'Pas de réponse',
+        content: data?.answer ?? 'Pas de rÃ©ponse',
         ts: Date.now(), mode,
         ragUsed: data?.rag_used, webUsed: data?.web_used,
         durationMs: Date.now() - t0,
@@ -373,20 +373,21 @@ export default function Sara() {
           : undefined,
       }]);
     } catch (e: unknown) {
-      if (timerRef.current) clearInterval(timerRef.current as ReturnType<typeof setInterval>);
+      if (timerRef.current) clearInterval(timerRef.current);
       resetA();
       const msg = e instanceof Error ? e.message : 'Erreur inconnue';
       setErrMsg(msg);
       setMsgs(p => [...p, { id: `e${Date.now()}`, role: 'sara', content: `**Erreur**\n\n${msg}`, ts: Date.now(), err: true }]);
     } finally { setLoading(false); }
-  }, [input, files, loading, mode, msgs, sb, repos, sessionId, cfg]);
-  // ── ASSOCIATE ─────────────────────────────────────────────────────────────
+  }, [input, files, loading, mode, msgs, sb, repos, sessionId, cfg, setA, resetA]);
+
+  // â”€â”€ ASSOCIATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const associate = useCallback(async (repoOverrides?: string[], goalOverride?: string) => {
     const sel = repoOverrides ?? repos.filter(r => r.selected).map(r => r.id);
     if (sel.length < 2) { setErrMsg('Select at least 2 repos'); return; }
     if (!sb) { setErrMsg('Configure Supabase first'); return; }
     setAssociating(true); setAssocResult(null); setErrMsg('');
-    const phases = ['Browsing live repo pages…', 'Analyzing integration points…', 'Designing architecture…', 'Generating starter code…', 'Writing deploy guide…'];
+    const phases = ['Browsing live repo pagesâ€¦', 'Analyzing integration pointsâ€¦', 'Designing architectureâ€¦', 'Generating starter codeâ€¦', 'Writing deploy guideâ€¦'];
     let pi = 0; setAssocPhase(phases[0]);
     const pt = setInterval(() => { pi++; if (pi < phases.length) setAssocPhase(phases[pi]); else clearInterval(pt); }, 4000);
     try {
@@ -400,34 +401,34 @@ export default function Sara() {
       setTab('market');
     } catch (e: unknown) { clearInterval(pt); setErrMsg(e instanceof Error ? e.message : 'Error'); }
     finally { setAssociating(false); setAssocPhase(''); }
-  }, [repos, sb, assocGoal]);
+  }, [repos, sb, assocGoal, mode]);
 
-  // ── SYNC REPO ─────────────────────────────────────────────────────────────
+  // â”€â”€ SYNC REPO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const syncRepo = async () => {
     if (!repoInput.trim() || syncing || !sb) return;
     const parts = repoInput.trim().replace('https://github.com/', '').split('/');
     if (parts.length < 2) { setSyncMsg('Format: owner/repo'); return; }
     const [owner, repo] = parts;
-    setSyncing(true); setSyncMsg(`Indexing ${owner}/${repo}…`);
+    setSyncing(true); setSyncMsg(`Indexing ${owner}/${repo}â€¦`);
     try {
       const { data, error: fnErr } = await sb.functions.invoke('github-sync', { body: { owner, repo } });
       if (fnErr) throw new Error(fnErr.message);
-      setSyncMsg(`✓ ${owner}/${repo} — ${data.chunks_created} chunks`);
+      setSyncMsg(`âœ“ ${owner}/${repo} â€” ${data.chunks_created} chunks`);
       setRepoInput(''); await loadRepos();
-    } catch (e: unknown) { setSyncMsg(`✗ ${e instanceof Error ? e.message : 'Failed'}`); }
+    } catch (e: unknown) { setSyncMsg(`âœ— ${e instanceof Error ? e.message : 'Failed'}`); }
     finally { setSyncing(false); }
   };
 
-  // ── BULK SYNC ─────────────────────────────────────────────────────────────
+  // â”€â”€ BULK SYNC â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const bulkSync = async (preset: string) => {
     if (!sb || bulkSyncing) return;
-    setBulkSyncing(true); setBulkProgress(`Starting bulk sync (${preset})…`);
+    setBulkSyncing(true); setBulkProgress(`Starting bulk sync (${preset})â€¦`);
     try {
       const { data, error: fnErr } = await sb.functions.invoke('bulk-sync', { body: { use_preset: preset } });
       if (fnErr) throw new Error(fnErr.message);
-      setBulkProgress(`✓ ${data.repos_succeeded}/${data.repos_processed} repos · ${data.total_chunks} chunks`);
+      setBulkProgress(`âœ“ ${data.repos_succeeded}/${data.repos_processed} repos Â· ${data.total_chunks} chunks`);
       await loadRepos();
-    } catch (e: unknown) { setBulkProgress(`✗ ${e instanceof Error ? e.message : 'Error'}`); }
+    } catch (e: unknown) { setBulkProgress(`âœ— ${e instanceof Error ? e.message : 'Error'}`); }
     finally { setBulkSyncing(false); }
   };
 
@@ -457,15 +458,15 @@ export default function Sara() {
     ['settings', 'settings', 'Settings'],
   ];
 
-  // ════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // RENDER
-  // ════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   return (
     <div
       style={{ display: 'flex', flexDirection: 'column', height: '100dvh', background: 'var(--bg)', fontFamily: 'var(--f-body)', overflow: 'hidden' }}
       className="grain"
     >
-      {/* ── HEADER ──────────────────────────────────────────────────────── */}
+      {/* â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <header style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: isMobile ? '0 14px' : '0 24px',
@@ -473,7 +474,6 @@ export default function Sara() {
         background: 'var(--surface)', borderBottom: '1px solid var(--border)',
         flexShrink: 0, boxShadow: 'var(--shadow-sm)', zIndex: 10,
       }}>
-        {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <span style={{ fontFamily: 'var(--f-head)', fontWeight: 800, fontSize: 16, color: 'white' }}>S</span>
@@ -485,13 +485,12 @@ export default function Sara() {
             </div>
             {!isMobile && (
               <p style={{ fontSize: 10, color: 'var(--ink3)', fontFamily: 'var(--f-mono)', lineHeight: 1, marginTop: 1 }}>
-                Groq · LLaMA 3.3 70B · Scrapling · TinyFish
+                Groq Â· LLaMA 3.3 70B Â· Gemini Â· OpenRouter
               </p>
             )}
           </div>
         </div>
 
-        {/* Desktop nav only */}
         {!isMobile && (
           <nav style={{ display: 'flex', gap: 4, background: 'var(--bg2)', padding: 4, borderRadius: 10 }}>
             {navTabs.map(([t, icon, label]) => (
@@ -504,11 +503,8 @@ export default function Sara() {
           </nav>
         )}
 
-        {/* Right side */}
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 12 }}>
-          {/* Model selector */}
           <ModelSelector mode={mode} setMode={setMode} isMobile={isMobile} />
-          {/* Connection status */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <div className={isConnected ? 'dot-live' : 'dot-err'} />
             {!isMobile && (
@@ -520,15 +516,14 @@ export default function Sara() {
         </div>
       </header>
 
-      {/* ── BODY ────────────────────────────────────────────────────────── */}
+      {/* â”€â”€ BODY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
 
-        {/* Sidebar — desktop only, only on chat tab */}
         {!isMobile && tab === 'chat' && (
           <aside style={{ width: 200, flexShrink: 0, background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
               <p style={{ fontSize: 10, fontFamily: 'var(--f-mono)', color: 'var(--ink3)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                {mode === 'multi' ? 'Pipeline 4×' : mode.includes('-') ? `Duo · ${mode.replace('-',' + ')}` : `Solo · ${mode}`}
+                {mode === 'multi' ? 'Pipeline 4Ã—' : mode.includes('-') ? `Duo Â· ${mode.replace('-',' + ')}` : `Solo Â· ${mode}`}
               </p>
             </div>
             <div style={{ flex: 1, padding: 12, display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
@@ -550,17 +545,15 @@ export default function Sara() {
             </div>
             {selRepos.length > 0 && (
               <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
-                <p style={{ fontSize: 11, color: 'var(--green)', fontFamily: 'var(--f-mono)', fontWeight: 600 }}>⬡ {selRepos.length} repo{selRepos.length !== 1 ? 's' : ''}</p>
+                <p style={{ fontSize: 11, color: 'var(--green)', fontFamily: 'var(--f-mono)', fontWeight: 600 }}>â¬¡ {selRepos.length} repo{selRepos.length !== 1 ? 's' : ''}</p>
                 <p style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 1 }}>Knowledge active</p>
               </div>
             )}
           </aside>
         )}
 
-        {/* Main content */}
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0, minWidth: 0 }}>
 
-          {/* ── CHAT ─────────────────────────────────────────────────── */}
           {tab === 'chat' && (
             <>
               <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: isMobile ? '16px 14px' : 24, WebkitOverflowScrolling: 'touch' }}>
@@ -578,7 +571,7 @@ export default function Sara() {
                           {[0, 1, 2].map(i => (
                             <div key={i} className="dot-live" style={{ width: 6, height: 6, animationDelay: `${i * 0.2}s` }} />
                           ))}
-                          <span style={{ fontSize: 13, color: 'var(--ink3)', fontFamily: 'var(--f-mono)' }}>Sara thinking…</span>
+                          <span style={{ fontSize: 13, color: 'var(--ink3)', fontFamily: 'var(--f-mono)' }}>Sara thinkingâ€¦</span>
                         </div>
                       </div>
                     )}
@@ -599,7 +592,6 @@ export default function Sara() {
                     {errMsg}
                   </div>
                 )}
-                {/* File previews */}
                 {files.length > 0 && (
                   <div style={{ maxWidth: 780, margin: '0 auto 8px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                     {files.map(f => (
@@ -609,25 +601,23 @@ export default function Sara() {
                         ) : f.isImage ? (
                           <img src={f.content} alt={f.name} style={{ width: 24, height: 24, borderRadius: 4, objectFit: 'cover' }} />
                         ) : (
-                          <span style={{ fontSize: 14 }}>{f.name.endsWith('.pdf') ? '📄' : f.name.endsWith('.zip') ? '📦' : f.name.match(/\.(xls|xlsx|csv)$/) ? '📊' : '📝'}</span>
+                          <span style={{ fontSize: 14 }}>{f.name.endsWith('.pdf') ? 'ðŸ“„' : f.name.endsWith('.zip') ? 'ðŸ“¦' : f.name.match(/\.(xls|xlsx|csv)$/) ? 'ðŸ“Š' : 'ðŸ“'}</span>
                         )}
                         <span style={{ fontFamily: 'var(--f-mono)', fontSize: 11, color: 'var(--ink2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{f.name}</span>
-                        {f.url && <span style={{ fontSize: 9, color: 'var(--green)', fontFamily: 'var(--f-mono)' }}>↑</span>}
+                        {f.url && <span style={{ fontSize: 9, color: 'var(--green)', fontFamily: 'var(--f-mono)' }}>â†‘</span>}
                         <button onClick={() => setFiles(p => p.filter(x => x.id !== f.id))}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink4)', fontSize: 14, lineHeight: 1, padding: '0 2px', flexShrink: 0 }}>×</button>
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink4)', fontSize: 14, lineHeight: 1, padding: '0 2px', flexShrink: 0 }}>Ã—</button>
                       </div>
                     ))}
                   </div>
                 )}
                 <div style={{ maxWidth: 780, margin: '0 auto', display: 'flex', gap: 8 }}>
-                  {/* Hidden file input */}
                   <input ref={fileInputRef} type="file" multiple accept="*/*" style={{ display: 'none' }}
                     onChange={e => e.target.files && handleFiles(e.target.files)} />
-                  {/* Attach button */}
                   <button onClick={() => fileInputRef.current?.click()} disabled={loading}
                     style={{ padding: '0 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg2)', cursor: 'pointer', flexShrink: 0, alignSelf: 'stretch', display: 'flex', alignItems: 'center', color: files.length > 0 ? 'var(--green)' : 'var(--ink3)', fontSize: 16, transition: 'all 0.15s' }}
-                    title="Joindre un fichier (image, PDF, code, zip…)">
-                    {uploading ? <Spin /> : '📎'}
+                    title="Joindre un fichier">
+                    {uploading ? <Spin /> : 'ðŸ“Ž'}
                     {files.length > 0 && <span style={{ fontSize: 10, fontFamily: 'var(--f-mono)', color: 'var(--green)', marginLeft: 2 }}>{files.length}</span>}
                   </button>
                   <textarea
@@ -639,7 +629,7 @@ export default function Sara() {
                       const imageItem = items.find(i => i.type.startsWith('image/'));
                       if (imageItem) { const f = imageItem.getAsFile(); if (f) { e.preventDefault(); handleFiles([f]); } }
                     }}
-                    placeholder={files.length > 0 ? 'Instructions pour ce fichier… (ou Entrée pour analyse auto)' : mode === 'multi' ? 'Multi-agent 4×…' : mode.includes('-') ? `Duo ${mode}…` : `Ask Sara (${mode})…`}
+                    placeholder={files.length > 0 ? 'Instructions pour ce fichierâ€¦ (ou EntrÃ©e pour analyse auto)' : mode === 'multi' ? 'Multi-agent 4Ã—â€¦' : mode.includes('-') ? `Duo ${mode}â€¦` : `Ask Sara (${mode})â€¦`}
                     rows={isMobile ? 1 : 2}
                     disabled={loading}
                     className="sara-input"
@@ -657,14 +647,13 @@ export default function Sara() {
                 </div>
                 {!isMobile && (
                   <p style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: 'var(--ink4)', fontFamily: 'var(--f-mono)' }}>
-                    {mode === 'multi' ? 'LLaMA × Gemini × OpenRouter · 4 agents' : mode.includes('-') ? `${mode.replace('-',' + ')} · duo` : `${mode} · solo`} · 📎 glisser-déposer · Enter ↵
+                    {mode === 'multi' ? 'LLaMA Ã— Gemini Ã— OpenRouter Â· 4 agents' : mode.includes('-') ? `${mode.replace('-',' + ')} Â· duo` : `${mode} Â· solo`} Â· ðŸ“Ž glisser-dÃ©poser Â· Enter â†µ
                   </p>
                 )}
               </div>
             </>
           )}
 
-          {/* ── MARKET ───────────────────────────────────────────────── */}
           {tab === 'market' && (
             <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
               <MarketTab
@@ -679,7 +668,6 @@ export default function Sara() {
             </div>
           )}
 
-          {/* ── REPOS ────────────────────────────────────────────────── */}
           {tab === 'repos' && (
             <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '16px 14px' : 24, WebkitOverflowScrolling: 'touch' }}>
               <ReposTab
@@ -691,7 +679,6 @@ export default function Sara() {
             </div>
           )}
 
-          {/* ── SETTINGS ─────────────────────────────────────────────── */}
           {tab === 'settings' && (
             <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '16px 14px' : 24, WebkitOverflowScrolling: 'touch' }}>
               <SettingsTab cfg={cfg} onChange={s => { setCfg(s); saveCfg(s); }} envUrl={ENV_URL} envKey={ENV_KEY} />
@@ -700,7 +687,6 @@ export default function Sara() {
         </main>
       </div>
 
-      {/* ── MOBILE BOTTOM NAV ───────────────────────────────────────────── */}
       {isMobile && (
         <nav style={{
           flexShrink: 0, display: 'flex', background: 'var(--surface)',
@@ -736,22 +722,22 @@ export default function Sara() {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// MODEL SELECTOR — bouton + popover
-// ═══════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// MODEL SELECTOR
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const MODE_COLORS: Record<Mode, string> = {
   llama: '#1a1a1a', gemini: '#1a5a8b', openrouter: '#5a1a8b',
   'llama-gemini': '#1a6a5a', 'llama-openrouter': '#4a1a6a', 'gemini-openrouter': '#2a3a8b',
   multi: '#8b1a1a',
 };
 const MODE_LABELS: Record<Mode, { short: string; long: string; desc: string }> = {
-  llama:              { short: 'LLaMA',   long: 'LLaMA 3.3 70B',              desc: 'Groq · ultra-rapide' },
+  llama:              { short: 'LLaMA',   long: 'LLaMA 3.3 70B',              desc: 'Groq Â· ultra-rapide' },
   gemini:             { short: 'Gemini',  long: 'Gemini 2.0 Flash',           desc: 'Google AI' },
-  openrouter:         { short: 'Router',  long: 'OpenRouter',                 desc: '200+ modèles' },
-  'llama-gemini':     { short: 'L+G',     long: 'LLaMA × Gemini',            desc: 'Duo · 2 agents parallèles' },
-  'llama-openrouter': { short: 'L+R',     long: 'LLaMA × OpenRouter',        desc: 'Duo · 2 agents parallèles' },
-  'gemini-openrouter':{ short: 'G+R',     long: 'Gemini × OpenRouter',       desc: 'Duo · 2 agents parallèles' },
-  multi:              { short: '4×',      long: 'LLaMA + Gemini + OpenRouter', desc: '4 agents · synthèse LLaMA' },
+  openrouter:         { short: 'Router',  long: 'OpenRouter',                 desc: '200+ modÃ¨les' },
+  'llama-gemini':     { short: 'L+G',     long: 'LLaMA Ã— Gemini',            desc: 'Duo Â· 2 agents parallÃ¨les' },
+  'llama-openrouter': { short: 'L+R',     long: 'LLaMA Ã— OpenRouter',        desc: 'Duo Â· 2 agents parallÃ¨les' },
+  'gemini-openrouter':{ short: 'G+R',     long: 'Gemini Ã— OpenRouter',       desc: 'Duo Â· 2 agents parallÃ¨les' },
+  multi:              { short: '4Ã—',      long: 'LLaMA + Gemini + OpenRouter', desc: '4 agents Â· synthÃ¨se LLaMA' },
 };
 
 function ModelSelector({ mode, setMode, isMobile }: { mode: Mode; setMode: (m: Mode) => void; isMobile: boolean }) {
@@ -789,7 +775,7 @@ function ModelSelector({ mode, setMode, isMobile }: { mode: Mode; setMode: (m: M
                   <p style={{ fontSize: 12, fontWeight: 600, color: active ? MODE_COLORS[m] : 'var(--ink)', fontFamily: 'var(--f-body)', lineHeight: 1.2 }}>{l.long}</p>
                   <p style={{ fontSize: 10, color: 'var(--ink4)', fontFamily: 'var(--f-mono)', lineHeight: 1.3, marginTop: 1 }}>{l.desc}</p>
                 </div>
-                {active && <span style={{ fontSize: 10, color: MODE_COLORS[m], fontFamily: 'var(--f-mono)', fontWeight: 700 }}>●</span>}
+                {active && <span style={{ fontSize: 10, color: MODE_COLORS[m], fontFamily: 'var(--f-mono)', fontWeight: 700 }}>â—</span>}
               </button>
             );
           })}
@@ -812,11 +798,16 @@ function ModelSelector({ mode, setMode, isMobile }: { mode: Mode; setMode: (m: M
         <span style={{ fontSize: isMobile ? 10 : 12, fontWeight: 700, fontFamily: 'var(--f-mono)', color: MODE_COLORS[mode] }}>
           {current.short}
         </span>
-        <span style={{ fontSize: 9, color: 'var(--ink4)', transform: open ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.15s' }}>▾</span>
+        <span style={{ fontSize: 9, color: 'var(--ink4)', transform: open ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.15s' }}>â–¾</span>
       </button>
 
       {open && (
         <div style={{
+          position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+          width: 230, background: 'var(--surface)',
+          border: '1px solid var(--border)', borderRadius: 12,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.14)', zIndex: 100,
+          padding:        <div style={{
           position: 'absolute', top: 'calc(100% + 8px)', right: 0,
           width: 230, background: 'var(--surface)',
           border: '1px solid var(--border)', borderRadius: 12,
@@ -836,6 +827,7 @@ function ModelSelector({ mode, setMode, isMobile }: { mode: Mode; setMode: (m: M
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CHAT EMPTY
+// ═══════════════════════════════════════════════════════════════════════════
 function ChatEmpty({ mode, selRepos, onSelect, isMobile }: {
   mode: Mode; selRepos: Repo[]; onSelect: (text: string) => void; isMobile: boolean;
 }) {
@@ -848,7 +840,6 @@ function ChatEmpty({ mode, selRepos, onSelect, isMobile }: {
 
   return (
     <div style={{ maxWidth: 780, margin: isMobile ? '16px auto 0' : '40px auto 0', paddingBottom: 16 }}>
-      {/* Hero */}
       <div style={{ marginBottom: isMobile ? 24 : 32, display: 'flex', alignItems: 'flex-start', gap: isMobile ? 14 : 20 }}>
         <div style={{ width: isMobile ? 48 : 56, height: isMobile ? 48 : 56, borderRadius: isMobile ? 14 : 16, background: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: 'var(--shadow)' }}>
           <span style={{ fontFamily: 'var(--f-head)', fontWeight: 800, fontSize: isMobile ? 24 : 28, color: 'white' }}>S</span>
@@ -864,15 +855,14 @@ function ChatEmpty({ mode, selRepos, onSelect, isMobile }: {
           </p>
           <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
             <span className="chip chip-ink">LLaMA 3.3 70B</span>
-            <span className="chip chip-red">Scrapling</span>
-            <span className="chip chip-blue">TinyFish</span>
+            <span className="chip chip-red">Gemini 2.0</span>
+            <span className="chip chip-blue">OpenRouter</span>
             <span className="chip chip-green">pgvector RAG</span>
             {selRepos.length > 0 && <span className="chip chip-amber">⬡ {selRepos.length} repos active</span>}
           </div>
         </div>
       </div>
 
-      {/* Clickable suggestions */}
       <p style={{ fontSize: 10, color: 'var(--ink4)', fontFamily: 'var(--f-mono)', marginBottom: 10, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
         Tap to try →
       </p>
@@ -887,16 +877,8 @@ function ChatEmpty({ mode, selRepos, onSelect, isMobile }: {
               boxShadow: 'var(--shadow-sm)', transition: 'all 0.15s',
               width: '100%', fontFamily: 'var(--f-body)',
             }}
-            onMouseEnter={e => {
-              const el = e.currentTarget as HTMLElement;
-              el.style.boxShadow = 'var(--shadow)';
-              el.style.transform = 'translateY(-1px)';
-            }}
-            onMouseLeave={e => {
-              const el = e.currentTarget as HTMLElement;
-              el.style.boxShadow = 'var(--shadow-sm)';
-              el.style.transform = 'translateY(0)';
-            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow-sm)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; }}
           >
             <div style={{ width: 4, height: 24, borderRadius: 2, background: s.c, marginBottom: 10 }} />
             <p style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)', marginBottom: 4 }}>{s.t}</p>
@@ -921,7 +903,7 @@ function ChatBubble({ msg, isMobile }: { msg: Msg; isMobile: boolean }) {
       {isUser ? (
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <div style={{ maxWidth: isMobile ? '85%' : '72%', display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
-            {msg.files?.length && (
+            {msg.files?.length ? (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: 'flex-end' }}>
                 {msg.files.map(f => f.isImage ? (
                   <img key={f.id} src={f.content} alt={f.name} style={{ maxWidth: 200, maxHeight: 150, borderRadius: 8, objectFit: 'cover' }} />
@@ -931,7 +913,7 @@ function ChatBubble({ msg, isMobile }: { msg: Msg; isMobile: boolean }) {
                   </div>
                 ))}
               </div>
-            )}
+            ) : null}
             <div style={{ padding: '12px 16px', borderRadius: '16px 16px 4px 16px', background: 'var(--ink)', color: 'white', fontSize: 14, lineHeight: 1.6, boxShadow: 'var(--shadow-sm)', wordBreak: 'break-word' }}>
               {msg.content}
             </div>
@@ -991,7 +973,7 @@ function ChatBubble({ msg, isMobile }: { msg: Msg; isMobile: boolean }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ASSOCIATION MARKET
+// MARKET TAB
 // ═══════════════════════════════════════════════════════════════════════════
 function MarketTab({ repos, templates, assocResult, associating, assocGoal, setAssocGoal, assocPhase, errMsg, toggleRepo, selRepos, onAssociate, onBuildTemplate, activeTemplate, isMobile }: {
   repos: Repo[]; templates: MarketTemplate[]; assocResult: AssocResult | null;
@@ -1032,7 +1014,6 @@ function MarketTab({ repos, templates, assocResult, associating, assocGoal, setA
 
         {assocResult && <AssocResultCard result={assocResult} />}
 
-        {/* Custom association */}
         <div className="card" style={{ padding: isMobile ? 16 : 20, marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
             <span style={{ fontSize: 16 }}>⚗️</span>
@@ -1066,7 +1047,6 @@ function MarketTab({ repos, templates, assocResult, associating, assocGoal, setA
           </button>
         </div>
 
-        {/* Templates */}
         <h3 style={{ fontFamily: 'var(--f-head)', fontSize: 18, fontWeight: 600, color: 'var(--ink)', marginBottom: 16 }}>
           Ready-to-Build Templates
         </h3>
@@ -1074,11 +1054,9 @@ function MarketTab({ repos, templates, assocResult, associating, assocGoal, setA
           {templates.map(t => {
             const isActive = activeTemplate?.id === t.id;
             return (
-              <div key={t.id}
-                className="market-card"
+              <div key={t.id} className="market-card"
                 style={{ border: isActive ? `2px solid ${t.color}` : undefined, cursor: 'pointer' }}
-                onClick={() => onBuildTemplate(t)}
-              >
+                onClick={() => onBuildTemplate(t)}>
                 <div style={{ padding: '16px 16px 0' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
                     <div style={{ width: 40, height: 40, borderRadius: 10, background: t.color + '15', border: `1px solid ${t.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
@@ -1265,7 +1243,7 @@ function ReposTab({ repos, repoInput, setRepoInput, onSync, syncing, syncMsg, on
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SETTINGS TAB — shows env var status, no manual credential input if env set
+// SETTINGS TAB
 // ═══════════════════════════════════════════════════════════════════════════
 function SettingsTab({ cfg, onChange, envUrl, envKey }: {
   cfg: Settings; onChange: (s: Settings) => void; envUrl: string; envKey: string;
@@ -1320,7 +1298,6 @@ function SettingsTab({ cfg, onChange, envUrl, envKey }: {
         <h2 style={{ fontFamily: 'var(--f-head)', fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>Configuration</h2>
       </div>
 
-      {/* Supabase */}
       <Section title="◈ Supabase — Backend" color="var(--red)">
         {hasEnvCreds ? (
           <div style={{ padding: 14, borderRadius: 8, background: 'var(--green-s)', border: '1px solid rgba(26,122,74,0.25)' }}>
@@ -1328,63 +1305,49 @@ function SettingsTab({ cfg, onChange, envUrl, envKey }: {
               ✓ Connected via Vercel environment variables
             </p>
             <p style={{ fontSize: 11, color: 'var(--ink2)', fontFamily: 'var(--f-mono)', lineHeight: 1.6 }}>
-              VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are injected at build time. No manual configuration needed. To change them, update the variables in Vercel Dashboard → Settings → Environment Variables, then redeploy.
+              VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are injected at build time.
             </p>
           </div>
         ) : (
           <>
             <div style={{ padding: 14, borderRadius: 8, background: 'var(--red-s)', border: '1px solid var(--red-m)', marginBottom: 14 }}>
-              <p style={{ fontWeight: 700, fontSize: 13, color: 'var(--red)', marginBottom: 4 }}>
-                ⚠ Not connected
-              </p>
+              <p style={{ fontWeight: 700, fontSize: 13, color: 'var(--red)', marginBottom: 4 }}>⚠ Not connected</p>
               <p style={{ fontSize: 11, color: 'var(--ink2)', fontFamily: 'var(--f-mono)', lineHeight: 1.6 }}>
-                Recommended: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel Dashboard → Settings → Environment Variables, then redeploy. Or enter manually below.
+                Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel, or enter below.
               </p>
             </div>
-            <Field label="Project URL" field="supabaseUrl" ph="https://xxxx.supabase.co" hint="Supabase Dashboard → Settings → API → Project URL" />
-            <Field label="Anon Key" field="supabaseKey" type="password" ph="eyJhbGci…" hint="Supabase Dashboard → Settings → API → anon public key" />
+            <Field label="Project URL" field="supabaseUrl" ph="https://xxxx.supabase.co" hint="Supabase Dashboard → Settings → API" />
+            <Field label="Anon Key" field="supabaseKey" type="password" ph="eyJhbGci…" hint="Supabase Dashboard → Settings → API" />
           </>
         )}
       </Section>
 
-      {/* AI */}
       <Section title="⚡ AI Model — Groq" color="var(--green)">
         <div style={{ marginBottom: 14, padding: 12, borderRadius: 8, background: 'var(--green-s)', border: '1px solid rgba(26,122,74,0.2)' }}>
-          <p style={{ fontWeight: 600, fontSize: 13, color: 'var(--green)' }}>Groq API key → Supabase Secret</p>
+          <p style={{ fontWeight: 600, fontSize: 13, color: 'var(--green)' }}>API keys → Supabase Secrets</p>
           <p style={{ fontSize: 11, color: 'var(--ink2)', fontFamily: 'var(--f-mono)', marginTop: 2, lineHeight: 1.6 }}>
-            Supabase Dashboard → Edge Functions → Secrets → Add GROQ_API_KEY=gsk_…
+            Supabase Dashboard → Edge Functions → Secrets → Add GROQ_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY
           </p>
-          <a href="https://console.groq.com" target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--green)', display: 'block', marginTop: 4 }}>
-            → Free key at console.groq.com
-          </a>
         </div>
         <div style={{ marginBottom: 14 }}>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--ink2)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'var(--f-mono)' }}>
-            Model
-          </label>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--ink2)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'var(--f-mono)' }}>Model</label>
           <select value={local.model} onChange={e => set('model', e.target.value)} className="sara-input" style={{ cursor: 'pointer' }}>
             {models.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
           </select>
         </div>
         <div style={{ marginBottom: 14 }}>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--ink2)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'var(--f-mono)' }}>
-            Persona
-          </label>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--ink2)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'var(--f-mono)' }}>Persona</label>
           <select value={local.persona} onChange={e => set('persona', e.target.value)} className="sara-input" style={{ cursor: 'pointer' }}>
             {personas.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
         </div>
       </Section>
 
-      {/* Web */}
       <Section title="🌐 Live Web Intelligence" color="var(--blue)">
         <div style={{ marginBottom: 14, padding: 12, borderRadius: 8, background: 'var(--blue-s)', border: '1px solid rgba(26,74,139,0.2)' }}>
           <p style={{ fontSize: 11, color: 'var(--ink2)', fontFamily: 'var(--f-mono)', lineHeight: 1.6 }}>
             Set TINYFISH_API_KEY as Supabase Secret to enable live web browsing.
           </p>
-          <a href="https://tinyfish.ai" target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--blue)', display: 'block', marginTop: 2 }}>
-            → Free key at tinyfish.ai
-          </a>
         </div>
         <div style={{ display: 'flex', gap: 20 }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--ink2)' }}>
@@ -1398,7 +1361,6 @@ function SettingsTab({ cfg, onChange, envUrl, envKey }: {
         </div>
       </Section>
 
-      {/* Generation params */}
       <Section title="◆ Generation Parameters" color="var(--ink2)">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           {[
@@ -1419,7 +1381,6 @@ function SettingsTab({ cfg, onChange, envUrl, envKey }: {
         </div>
       </Section>
 
-      {/* System prompt */}
       <Section title="◈ Custom System Prompt" color="var(--ink3)">
         <textarea value={local.systemPrompt} onChange={e => set('systemPrompt', e.target.value)}
           placeholder="Leave empty to use Sara's default engineering persona…"
@@ -1429,7 +1390,6 @@ function SettingsTab({ cfg, onChange, envUrl, envKey }: {
         </p>
       </Section>
 
-      {/* Deploy guide */}
       <div className="card" style={{ padding: 20, marginBottom: 20, background: 'var(--ink)' }}>
         <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', fontFamily: 'var(--f-mono)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12 }}>
           Complete Deploy Checklist
@@ -1439,21 +1399,11 @@ VITE_SUPABASE_URL=https://xxxx.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGci…
 
 # ── Supabase Secrets (Edge Functions) ────────────
-GROQ_API_KEY=gsk_...          # required
-TINYFISH_API_KEY=tf_...        # optional (web browsing)
-GITHUB_TOKEN=ghp_...           # optional (higher rate limits)
-
-# ── Deploy Edge Functions ─────────────────────────
-npx supabase login
-npx supabase link --project-ref YOUR_REF
-npx supabase functions deploy chat
-npx supabase functions deploy multiagent
-npx supabase functions deploy associate
-npx supabase functions deploy github-sync
-npx supabase functions deploy bulk-sync
-
-# ── Run DB Migration ──────────────────────────────
-npx supabase db push`}</pre>
+GROQ_API_KEY=gsk_...
+GEMINI_API_KEY=AIza...
+OPENROUTER_API_KEY=sk-or-...
+TINYFISH_API_KEY=tf_...        # optional
+GITHUB_TOKEN=ghp_...           # optional`}</pre>
       </div>
 
       <button className="btn-red" onClick={() => onChange(local)}
