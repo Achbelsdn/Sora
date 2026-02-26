@@ -2,6 +2,8 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { marked } from 'marked';
 import { useIsMobile } from './hooks/use-mobile';
+import { useAgentStream } from './hooks/use-agent-stream';
+import LiveAgentPanel from './components/LiveAgentPanel';
 
 marked.setOptions({ breaks: true, gfm: true });
 
@@ -293,6 +295,8 @@ export default function Sara() {
   const setA = (id: AgentId, s: AgentStatus) => setAStatus(p => ({ ...p, [id]: s }));
   const resetA = () => setAStatus({ researcher: 'idle', analyst: 'idle', critic: 'idle', synthesizer: 'idle' });
 
+  const agentStream = useAgentStream();
+
   // ── Supabase client ────────────────────────────────────────────────
   const sb = useMemo(() => {
     return (cfg.supabaseUrl && cfg.supabaseKey) ? createClient(cfg.supabaseUrl, cfg.supabaseKey) : null;
@@ -417,93 +421,88 @@ export default function Sara() {
   // ── SEND ───────────────────────────────────────────────────────────
   const send = useCallback(async () => {
     const text = input.trim();
-    const readyFiles = files.filter(f => !f.extracting);
-    if ((!text && !readyFiles.length) || loading || !sb) {
-      if (!sb) { setErrMsg('Configure Supabase in Settings'); addToast('error', 'Not connected to Supabase'); }
+    const ready = files.filter(f => !f.extracting);
+    if ((!text && !ready.length) || loading || !sb) {
+      if (!sb) { setErrMsg('Configure Supabase in Settings'); addToast('error', 'Not connected'); }
       return;
     }
-    const msgText = text || `Analyze this file: ${readyFiles[0]?.name}`;
+    const msgText = text || `Analyze this file: ${ready[0]?.name}`;
     setInput(''); resetA(); setErrMsg(''); setFiles([]);
-    setMsgs(p => [...p, { id: `u${Date.now()}`, role: 'user', content: msgText, ts: Date.now(), files: readyFiles.length ? readyFiles : undefined }]);
+    setMsgs(p => [...p, { id: `u${Date.now()}`, role: 'user', content: msgText, ts: Date.now(), files: ready.length ? ready : undefined }]);
     setLoading(true);
 
     const history = msgs.slice(-cfg.contextWindow).map(m => ({ role: m.role === 'sara' ? 'assistant' : 'user', content: m.content }));
-    const hasImages = readyFiles.some(f => f.isImage);
+    const hasImg = ready.some(f => f.isImage);
     const isDuo = mode === 'llama-gemini' || mode === 'llama-openrouter' || mode === 'gemini-openrouter';
+    let eMode = mode as Mode;
+    if (hasImg && mode === 'llama') eMode = 'gemini';
 
-    // Auto-route: images → gemini if solo llama
-    let effectiveMode = mode;
-    if (hasImages && mode === 'llama') effectiveMode = 'gemini';
+    const isMultiAgent = eMode === 'multi' || isDuo;
+    const fn = eMode === 'multi' ? 'multiagent' : isDuo ? 'chat-duo' : eMode === 'gemini' ? 'chat-gemini' : eMode === 'openrouter' ? 'chat-openrouter' : 'chat';
 
-    const fn = effectiveMode === 'multi' ? 'multiagent'
-      : effectiveMode === 'gemini' ? 'chat-gemini'
-      : effectiveMode === 'openrouter' ? 'chat-openrouter'
-      : isDuo ? 'chat-duo'
-      : 'chat';
+    const sFiles = ready.map(f => ({
+      name: f.name, type: f.type, size: f.size, isImage: f.isImage, isText: f.isText,
+      content: f.isImage ? f.content.slice(0, 500000) : f.content.slice(0, 20000), url: f.url,
+    }));
+    const body: Record<string, unknown> = {
+      message: msgText, session_id: sessionId, history,
+      repos: selRepos.map(r => r.id),
+      files: sFiles.length ? sFiles : undefined,
+    };
+    if (isDuo) body.models = eMode.split('-');
 
     try {
-      // Agent status animations
-      if (effectiveMode === 'multi') {
-        const order: AgentId[] = ['researcher', 'analyst', 'critic', 'synthesizer'];
-        let i = 0;
-        if (timerRef.current) clearInterval(timerRef.current);
-        timerRef.current = setInterval(() => {
-          if (i > 0) setA(order[i - 1], 'done');
-          if (i < order.length) { setA(order[i], 'thinking'); i++; }
-          else { if (timerRef.current) clearInterval(timerRef.current); }
-        }, 2100);
-      } else if (isDuo) {
-        setA('researcher', 'thinking'); setA('critic', 'thinking');
-        setTimeout(() => { setA('researcher', 'done'); setA('critic', 'done'); setA('synthesizer', 'thinking'); }, 3500);
-      } else {
-        setA('synthesizer', 'thinking');
-      }
-
       const t0 = Date.now();
-      const serializedFiles = readyFiles.map(f => ({
-        name: f.name, type: f.type, size: f.size, isImage: f.isImage, isText: f.isText,
-        content: f.isImage ? f.content.slice(0, 500000) : f.content.slice(0, 20000),
-        url: f.url,
-      }));
 
-      const body: Record<string, unknown> = {
-        message: msgText, session_id: sessionId,
-        history, repos: selRepos.map(r => r.id),
-        files: serializedFiles.length ? serializedFiles : undefined,
-      };
-      if (isDuo) body.models = effectiveMode.split('-');
+      if (isMultiAgent) {
+        // ─── SSE STREAMING for multi-agent/duo ───
+        const result = await agentStream.stream(cfg.supabaseUrl, cfg.supabaseKey, fn, body);
 
-      const { data, error } = await sb.functions.invoke(fn, { body });
-      if (timerRef.current) clearInterval(timerRef.current);
-      (Object.keys(AGENTS) as AgentId[]).forEach(k => setA(k, 'done'));
-      if (error) throw error;
+        if (result) {
+          if (result.session_id) setSessionId(result.session_id);
+          setMsgs(p => [...p, {
+            id: `s${Date.now()}`, role: 'sara',
+            content: result.answer ?? 'No response',
+            ts: Date.now(), mode: eMode,
+            ragUsed: result.rag_used,
+            durationMs: result.duration_ms ?? (Date.now() - t0),
+            agentOutputs: {
+              researcher: result.researcher_findings,
+              analyst: result.analyst_analysis,
+              critic: result.critic_critique,
+              synthesizer: result.answer,
+            },
+          }]);
+          loadSessions();
+        } else if (agentStream.error) {
+          throw new Error(agentStream.error);
+        }
+      } else {
+        // ─── Regular (non-streaming) for solo modes ───
+        setA('synthesizer', 'thinking');
+        const { data, error } = await sb.functions.invoke(fn, { body });
+        (Object.keys(AGENTS) as AgentId[]).forEach(k => setA(k, 'done'));
+        if (error) throw error;
+        if (data?.session_id) setSessionId(data.session_id);
 
-      if (data?.session_id) setSessionId(data.session_id);
-
-      const saraMsg: Msg = {
-        id: `s${Date.now()}`, role: 'sara',
-        content: data?.answer ?? 'No response',
-        ts: Date.now(), mode: effectiveMode,
-        ragUsed: data?.rag_used, webUsed: data?.web_used,
-        durationMs: Date.now() - t0,
-        agentOutputs: (effectiveMode === 'multi' || isDuo)
-          ? { researcher: data?.researcher_findings, analyst: data?.analyst_analysis, critic: data?.critic_critique, synthesizer: data?.answer }
-          : undefined,
-      };
-      setMsgs(p => [...p, saraMsg]);
-
-      // Refresh sessions
-      loadSessions();
-
+        setMsgs(p => [...p, {
+          id: `s${Date.now()}`, role: 'sara',
+          content: data?.answer ?? 'No response',
+          ts: Date.now(), mode: eMode,
+          ragUsed: data?.rag_used, webUsed: data?.web_used,
+          durationMs: Date.now() - t0,
+        }]);
+        loadSessions();
+      }
     } catch (e: unknown) {
       if (timerRef.current) clearInterval(timerRef.current);
-      resetA();
+      resetA(); agentStream.reset();
       const msg = e instanceof Error ? e.message : 'Unknown error';
       setErrMsg(msg);
       setMsgs(p => [...p, { id: `e${Date.now()}`, role: 'sara', content: `**Error**\n\n${msg}`, ts: Date.now(), err: true }]);
       addToast('error', 'Request failed');
     } finally { setLoading(false); }
-  }, [input, files, loading, mode, msgs, sb, selRepos, sessionId, cfg, addToast]);
+  }, [input, files, loading, mode, msgs, sb, selRepos, sessionId, cfg, addToast, agentStream]);
 
   // ── ASSOCIATE ──────────────────────────────────────────────────────
   const associate = useCallback(async (repoOverrides?: string[], goalOverride?: string) => {
@@ -776,7 +775,16 @@ export default function Sara() {
                         onReact={(emoji) => reactToMessage(m.id, emoji)}
                       />
                     ))}
-                    {loading && <ThinkingIndicator mode={mode} />}
+                    {loading && (agentStream.streaming ? (
+                      <LiveAgentPanel
+                        agents={agentStream.agents}
+                        phase={agentStream.phase}
+                        elapsed={agentStream.elapsed}
+                        streaming={agentStream.streaming}
+                      />
+                    ) : (
+                      <ThinkingIndicator mode={mode} />
+                    ))}
                     <div ref={endRef} />
                   </div>
                 )}
