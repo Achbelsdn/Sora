@@ -180,7 +180,7 @@ export default function Sara() {
   const setA = (id: AgentId, s: AgentStatus) => setAStatus(p => ({ ...p, [id]: s }));
   const resetA = () => setAStatus({ researcher: 'idle', analyst: 'idle', critic: 'idle', synthesizer: 'idle' });
 
-  // ── SEND - Version finale anti-boucle + fallback automatique ─────────────────
+  // ── SEND - Version finale corrigée + Kimi 100% Moonshot ─────────────────
 const send = useCallback(async () => {
   const text = input.trim();
   if (!text || loading || !sb) {
@@ -199,12 +199,10 @@ const send = useCallback(async () => {
     content: m.content
   }));
 
-  const fn = mode === 'multi' ? 'multiagent-hybrid'
-           : mode === 'kimi' ? 'chat-kimi'
-           : mode === 'hybrid' ? 'multiagent-hybrid'
+  const fn = mode === 'multi' || mode === 'hybrid' ? 'multiagent-hybrid'
+           : mode === 'kimi' ? 'chat-kimi'           // ← important
            : 'chat';
 
-  // Timeout avec Promise.race (plus fiable que signal seul)
   const timeout = (ms: number) => new Promise((_, reject) => 
     setTimeout(() => reject(new Error('timeout')), ms)
   );
@@ -223,9 +221,8 @@ const send = useCallback(async () => {
 
     const t0 = Date.now();
 
-    // On essaie le mode demandé avec 55s max
     const result = await Promise.race([
-      timeout(55000),
+      timeout(65000), // 65s pour Kimi (il est parfois lent)
       sb.functions.invoke(fn, {
         body: { 
           message: text, 
@@ -236,7 +233,7 @@ const send = useCallback(async () => {
       })
     ]);
 
-    clearTimeout(timerRef.current as any);
+    if (timerRef.current) clearInterval(timerRef.current as any);
     if (mode === 'solo' || mode === 'kimi') setA('synthesizer', 'done');
     else (Object.keys(AGENTS) as AgentId[]).forEach(k => setA(k, 'done'));
 
@@ -246,8 +243,14 @@ const send = useCallback(async () => {
     if (data?.session_id) setSessionId(data.session_id);
 
     setMsgs(p => [...p, {
-      id: `s${Date.now()}`, role: 'sara', content: data?.answer ?? 'Pas de réponse', ts: Date.now(), mode,
-      ragUsed: data?.rag_used, webUsed: data?.web_used, durationMs: Date.now() - t0,
+      id: `s${Date.now()}`, 
+      role: 'sara', 
+      content: data?.answer ?? 'Pas de réponse', 
+      ts: Date.now(), 
+      mode,
+      ragUsed: data?.rag_used, 
+      webUsed: data?.web_used, 
+      durationMs: Date.now() - t0,
       agentOutputs: (mode === 'multi' || mode === 'hybrid') 
         ? { researcher: data?.researcher_findings, analyst: data?.analyst_analysis, critic: data?.critic_critique, synthesizer: data?.answer } 
         : undefined,
@@ -257,19 +260,23 @@ const send = useCallback(async () => {
     if (timerRef.current) clearInterval(timerRef.current as any);
 
     const msg = e.message?.includes('timeout') || e.name === 'AbortError'
-      ? "Kimi est trop lent sur NVIDIA. Passage automatique en LLaMA."
+      ? "Kimi est trop lent → Passage auto en LLaMA"
       : (e.message || 'Erreur inconnue');
 
-    // Fallback automatique en LLaMA si Kimi échoue
+    // Fallback automatique
     if ((mode === 'kimi' || mode === 'hybrid') && !msg.includes('LLaMA')) {
       setErrMsg("Kimi a échoué → Passage en mode LLaMA");
-      setMode('solo'); // Change automatiquement le mode
+      setMode('solo');
     } else {
       setErrMsg(msg);
     }
 
     setMsgs(p => [...p, { 
-      id: `e\( {Date.now()}`, role: 'sara', content: `**Erreur**\n\n \){msg}`, ts: Date.now(), err: true 
+      id: `e${Date.now()}`,           // ← corrigé
+      role: 'sara', 
+      content: `**Erreur**\n\n${msg}`, // ← corrigé
+      ts: Date.now(), 
+      err: true 
     }]);
 
   } finally {
