@@ -180,102 +180,96 @@ export default function Sara() {
   const setA = (id: AgentId, s: AgentStatus) => setAStatus(p => ({ ...p, [id]: s }));
   const resetA = () => setAStatus({ researcher: 'idle', analyst: 'idle', critic: 'idle', synthesizer: 'idle' });
 
-  // ── SEND ─────────────────────────────────────────────────────────────────
+  // ── SEND - Version finale anti-boucle + fallback automatique ─────────────────
 const send = useCallback(async () => {
   const text = input.trim();
   if (!text || loading || !sb) {
-    if (!sb) setErrMsg('Configure Supabase in Settings');
+    if (!sb) setErrMsg('Configure Supabase dans Settings');
     return;
   }
 
-  setInput(''); 
-  resetA(); 
+  setInput('');
+  resetA();
   setErrMsg('');
   setMsgs(p => [...p, { id: `u${Date.now()}`, role: 'user', content: text, ts: Date.now() }]);
   setLoading(true);
 
   const history = msgs.slice(-cfg.contextWindow).map(m => ({
-    role: m.role === 'sara' ? 'assistant' : 'user', 
-    content: m.content 
+    role: m.role === 'sara' ? 'assistant' : 'user',
+    content: m.content
   }));
 
-  // ── Timeout + AbortController pour arrêter la boucle ─────────────────────
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 55000); // 55 secondes max
+  const fn = mode === 'multi' ? 'multiagent-hybrid'
+           : mode === 'kimi' ? 'chat-kimi'
+           : mode === 'hybrid' ? 'multiagent-hybrid'
+           : 'chat';
+
+  // Timeout avec Promise.race (plus fiable que signal seul)
+  const timeout = (ms: number) => new Promise((_, reject) => 
+    setTimeout(() => reject(new Error('timeout')), ms)
+  );
 
   try {
-    const fn = mode === 'multi' ? 'multiagent-hybrid' 
-             : mode === 'kimi' ? 'chat-kimi' 
-             : mode === 'hybrid' ? 'multiagent-hybrid' 
-             : 'chat';
-
-    // Animation agents
     if (mode === 'multi' || mode === 'hybrid') {
       const order: AgentId[] = ['researcher', 'analyst', 'critic', 'synthesizer'];
       let i = 0;
       if (timerRef.current) clearInterval(timerRef.current);
       timerRef.current = setInterval(() => {
-        if (i > 0) setA(order[i - 1], 'done');
-        if (i < order.length) { setA(order[i], 'thinking'); i++; }
-        else if (timerRef.current) clearInterval(timerRef.current);
+        if (i > 0) setA(order[i-1], 'done');
+        if (i < order.length) setA(order[i], 'thinking');
+        i++;
       }, 2100);
-    } else {
-      setA('synthesizer', 'thinking');
-    }
+    } else setA('synthesizer', 'thinking');
 
     const t0 = Date.now();
 
-    const { data, error: fnErr } = await sb.functions.invoke(fn, {
-      body: { 
-        message: text, 
-        session_id: sessionId, 
-        history, 
-        repos: repos.filter(r => r.selected).map(r => r.id) 
-      },
-      signal: controller.signal   // ← IMPORTANT : permet d’annuler
-    });
+    // On essaie le mode demandé avec 55s max
+    const result = await Promise.race([
+      timeout(55000),
+      sb.functions.invoke(fn, {
+        body: { 
+          message: text, 
+          session_id: sessionId, 
+          history, 
+          repos: repos.filter(r => r.selected).map(r => r.id) 
+        }
+      })
+    ]);
 
-    clearTimeout(timeoutId);
-    if (timerRef.current) clearInterval(timerRef.current);
-
+    clearTimeout(timerRef.current as any);
     if (mode === 'solo' || mode === 'kimi') setA('synthesizer', 'done');
     else (Object.keys(AGENTS) as AgentId[]).forEach(k => setA(k, 'done'));
 
-    if (fnErr) throw new Error(fnErr.message);
+    const { data, error } = result as any;
+    if (error) throw error;
 
     if (data?.session_id) setSessionId(data.session_id);
 
     setMsgs(p => [...p, {
-      id: `s${Date.now()}`, 
-      role: 'sara', 
-      content: data?.answer ?? 'No response', 
-      ts: Date.now(), 
-      mode,
-      ragUsed: data?.rag_used, 
-      webUsed: data?.web_used, 
-      durationMs: Date.now() - t0,
+      id: `s${Date.now()}`, role: 'sara', content: data?.answer ?? 'Pas de réponse', ts: Date.now(), mode,
+      ragUsed: data?.rag_used, webUsed: data?.web_used, durationMs: Date.now() - t0,
       agentOutputs: (mode === 'multi' || mode === 'hybrid') 
         ? { researcher: data?.researcher_findings, analyst: data?.analyst_analysis, critic: data?.critic_critique, synthesizer: data?.answer } 
         : undefined,
     }]);
 
   } catch (e: any) {
-    clearTimeout(timeoutId);
-    if (timerRef.current) clearInterval(timerRef.current);
-    resetA();
+    if (timerRef.current) clearInterval(timerRef.current as any);
 
-    const isTimeout = e.name === 'AbortError' || e.message?.includes('abort');
-    const m = isTimeout 
-      ? "⏳ Kimi a mis trop de temps (timeout 55s). Essaie en mode Solo LLaMA ou réessaie plus tard."
-      : (e instanceof Error ? e.message : 'Erreur inconnue');
+    const msg = e.message?.includes('timeout') || e.name === 'AbortError'
+      ? "Kimi est trop lent sur NVIDIA. Passage automatique en LLaMA."
+      : (e.message || 'Erreur inconnue');
 
-    setErrMsg(m);
+    // Fallback automatique en LLaMA si Kimi échoue
+    if ((mode === 'kimi' || mode === 'hybrid') && !msg.includes('LLaMA')) {
+      setErrMsg("Kimi a échoué → Passage en mode LLaMA");
+      setMode('solo'); // Change automatiquement le mode
+    } else {
+      setErrMsg(msg);
+    }
+
     setMsgs(p => [...p, { 
-      id: `e${Date.now()}`, 
-      role: 'sara', 
-      content: `**Erreur**\n\n${m}\n\n→ Essaie en mode LLaMA`, 
-      ts: Date.now(), 
-      err: true 
+      id: `e\( {Date.now()}`, role: 'sara', content: `**Erreur**\n\n \){msg}`, ts: Date.now(), err: true 
     }]);
 
   } finally {
