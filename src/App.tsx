@@ -8,7 +8,7 @@ marked.setOptions({ breaks: true, gfm: true });
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type Tab = 'chat' | 'market' | 'repos' | 'settings';
-type Mode = 'solo' | 'multi' | 'kimi' | 'hybrid';
+type Mode = 'llama' | 'gemini' | 'openrouter' | 'llama-gemini' | 'llama-openrouter' | 'gemini-openrouter' | 'multi';
 type AgentId = 'researcher' | 'analyst' | 'critic' | 'synthesizer';
 type AgentStatus = 'idle' | 'thinking' | 'done';
 
@@ -136,7 +136,7 @@ function Spin({ size = 14 }: { size?: number }) {
 export default function Sara() {
   const isMobile = useIsMobile();
   const [tab, setTab] = useState<Tab>('chat');
-  const [mode, setMode] = useState<Mode>('solo');
+  const [mode, setMode] = useState<Mode>('llama');
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -180,109 +180,78 @@ export default function Sara() {
   const setA = (id: AgentId, s: AgentStatus) => setAStatus(p => ({ ...p, [id]: s }));
   const resetA = () => setAStatus({ researcher: 'idle', analyst: 'idle', critic: 'idle', synthesizer: 'idle' });
 
-  // ── SEND - Version finale corrigée + Kimi 100% Moonshot ─────────────────
-const send = useCallback(async () => {
-  const text = input.trim();
-  if (!text || loading || !sb) {
-    if (!sb) setErrMsg('Configure Supabase dans Settings');
-    return;
-  }
-
-  setInput('');
-  resetA();
-  setErrMsg('');
-  setMsgs(p => [...p, { id: `u${Date.now()}`, role: 'user', content: text, ts: Date.now() }]);
-  setLoading(true);
-
-  const history = msgs.slice(-cfg.contextWindow).map(m => ({
-    role: m.role === 'sara' ? 'assistant' : 'user',
-    content: m.content
-  }));
-
-  const fn = mode === 'multi' || mode === 'hybrid' ? 'multiagent-hybrid'
-           : mode === 'kimi' ? 'chat-kimi'           // ← important
-           : 'chat';
-
-  const timeout = (ms: number) => new Promise((_, reject) => 
-    setTimeout(() => reject(new Error('timeout')), ms)
-  );
-
-  try {
-    if (mode === 'multi' || mode === 'hybrid') {
-      const order: AgentId[] = ['researcher', 'analyst', 'critic', 'synthesizer'];
-      let i = 0;
-      if (timerRef.current) clearInterval(timerRef.current);
-      timerRef.current = setInterval(() => {
-        if (i > 0) setA(order[i-1], 'done');
-        if (i < order.length) setA(order[i], 'thinking');
-        i++;
-      }, 2100);
-    } else setA('synthesizer', 'thinking');
-
-    const t0 = Date.now();
-
-    const result = await Promise.race([
-      timeout(65000), // 65s pour Kimi (il est parfois lent)
-      sb.functions.invoke(fn, {
-        body: { 
-          message: text, 
-          session_id: sessionId, 
-          history, 
-          repos: repos.filter(r => r.selected).map(r => r.id) 
-        }
-      })
-    ]);
-
-    if (timerRef.current) clearInterval(timerRef.current as any);
-    if (mode === 'solo' || mode === 'kimi') setA('synthesizer', 'done');
-    else (Object.keys(AGENTS) as AgentId[]).forEach(k => setA(k, 'done'));
-
-    const { data, error } = result as any;
-    if (error) throw error;
-
-    if (data?.session_id) setSessionId(data.session_id);
-
-    setMsgs(p => [...p, {
-      id: `s${Date.now()}`, 
-      role: 'sara', 
-      content: data?.answer ?? 'Pas de réponse', 
-      ts: Date.now(), 
-      mode,
-      ragUsed: data?.rag_used, 
-      webUsed: data?.web_used, 
-      durationMs: Date.now() - t0,
-      agentOutputs: (mode === 'multi' || mode === 'hybrid') 
-        ? { researcher: data?.researcher_findings, analyst: data?.analyst_analysis, critic: data?.critic_critique, synthesizer: data?.answer } 
-        : undefined,
-    }]);
-
-  } catch (e: any) {
-    if (timerRef.current) clearInterval(timerRef.current as any);
-
-    const msg = e.message?.includes('timeout') || e.name === 'AbortError'
-      ? "Kimi est trop lent → Passage auto en LLaMA"
-      : (e.message || 'Erreur inconnue');
-
-    // Fallback automatique
-    if ((mode === 'kimi' || mode === 'hybrid') && !msg.includes('LLaMA')) {
-      setErrMsg("Kimi a échoué → Passage en mode LLaMA");
-      setMode('solo');
-    } else {
-      setErrMsg(msg);
+  // ── SEND ─────────────────────────────────────────────────────────────────
+  const send = useCallback(async () => {
+    const text = input.trim();
+    if (!text || loading || !sb) {
+      if (!sb) setErrMsg('Configure Supabase dans Settings');
+      return;
     }
+    setInput(''); resetA(); setErrMsg('');
+    setMsgs(p => [...p, { id: `u${Date.now()}`, role: 'user', content: text, ts: Date.now() }]);
+    setLoading(true);
 
-    setMsgs(p => [...p, { 
-      id: `e${Date.now()}`,           // ← corrigé
-      role: 'sara', 
-      content: `**Erreur**\n\n${msg}`, // ← corrigé
-      ts: Date.now(), 
-      err: true 
-    }]);
+    const history = msgs.slice(-cfg.contextWindow).map(m => ({
+      role: m.role === 'sara' ? 'assistant' : 'user',
+      content: m.content,
+    }));
 
-  } finally {
-    setLoading(false);
-  }
-}, [input, loading, mode, msgs, sb, repos, sessionId, cfg]);
+    const isDuo = mode === 'llama-gemini' || mode === 'llama-openrouter' || mode === 'gemini-openrouter';
+    const fn = mode === 'multi' ? 'multiagent'
+      : mode === 'gemini' ? 'chat-gemini'
+      : mode === 'openrouter' ? 'chat-openrouter'
+      : isDuo ? 'chat-duo'
+      : 'chat';
+
+    try {
+      if (mode === 'multi') {
+        const order: AgentId[] = ['researcher', 'analyst', 'critic', 'synthesizer'];
+        let i = 0;
+        if (timerRef.current) clearInterval(timerRef.current);
+        timerRef.current = setInterval(() => {
+          if (i > 0) setA(order[i - 1], 'done');
+          if (i < order.length) { setA(order[i], 'thinking'); i++; }
+          else { if (timerRef.current) clearInterval(timerRef.current); }
+        }, 2100);
+      } else if (isDuo) {
+        setA('researcher', 'thinking'); setA('critic', 'thinking');
+        setTimeout(() => { setA('researcher', 'done'); setA('critic', 'done'); setA('synthesizer', 'thinking'); }, 3500);
+      } else {
+        setA('synthesizer', 'thinking');
+      }
+
+      const t0 = Date.now();
+      const body: Record<string, unknown> = {
+        message: text, session_id: sessionId,
+        history, repos: repos.filter(r => r.selected).map(r => r.id),
+      };
+      if (isDuo) body.models = mode.split('-'); // e.g. ['llama','gemini']
+
+      const { data, error } = await sb.functions.invoke(fn, { body });
+
+      if (timerRef.current) clearInterval(timerRef.current as ReturnType<typeof setInterval>);
+      (Object.keys(AGENTS) as AgentId[]).forEach(k => setA(k, 'done'));
+      if (error) throw error;
+
+      if (data?.session_id) setSessionId(data.session_id);
+      setMsgs(p => [...p, {
+        id: `s${Date.now()}`, role: 'sara',
+        content: data?.answer ?? 'Pas de réponse',
+        ts: Date.now(), mode,
+        ragUsed: data?.rag_used, webUsed: data?.web_used,
+        durationMs: Date.now() - t0,
+        agentOutputs: (mode === 'multi' || isDuo)
+          ? { researcher: data?.researcher_findings, analyst: data?.analyst_analysis, critic: data?.critic_critique, synthesizer: data?.answer }
+          : undefined,
+      }]);
+    } catch (e: unknown) {
+      if (timerRef.current) clearInterval(timerRef.current as ReturnType<typeof setInterval>);
+      resetA();
+      const msg = e instanceof Error ? e.message : 'Erreur inconnue';
+      setErrMsg(msg);
+      setMsgs(p => [...p, { id: `e${Date.now()}`, role: 'sara', content: `**Erreur**\n\n${msg}`, ts: Date.now(), err: true }]);
+    } finally { setLoading(false); }
+  }, [input, loading, mode, msgs, sb, repos, sessionId, cfg]);
   // ── ASSOCIATE ─────────────────────────────────────────────────────────────
   const associate = useCallback(async (repoOverrides?: string[], goalOverride?: string) => {
     const sel = repoOverrides ?? repos.filter(r => r.selected).map(r => r.id);
@@ -294,7 +263,7 @@ const send = useCallback(async () => {
     const pt = setInterval(() => { pi++; if (pi < phases.length) setAssocPhase(phases[pi]); else clearInterval(pt); }, 4000);
     try {
       const { data, error: fnErr } = await sb.functions.invoke('associate', {
-        body: { repo_ids: sel, custom_goal: (goalOverride ?? assocGoal) || undefined },
+        body: { repo_ids: sel, custom_goal: (goalOverride ?? assocGoal) || undefined, mode },
       });
       clearInterval(pt);
       if (fnErr) throw new Error(fnErr.message);
@@ -409,15 +378,8 @@ const send = useCallback(async () => {
 
         {/* Right side */}
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 12 }}>
-          {/* Mode toggle */}
-          <div style={{ display: 'flex', background: 'var(--bg2)', padding: 3, borderRadius: 8, gap: 2 }}>
-            {([['solo', 'LLaMA'], ['kimi', 'Kimi'], ['hybrid', 'K+L'], ['multi', '4×']] as [Mode, string][]).map(([m, label]) => (
-              <button key={m} onClick={() => setMode(m)}
-                style={{ padding: isMobile ? '4px 7px' : '5px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: isMobile ? 9 : 11, fontWeight: 600, fontFamily: 'var(--f-mono)', transition: 'all 0.15s', background: mode === m ? (m === 'kimi' ? '#1a5a8b' : m === 'hybrid' ? '#5a1a8b' : m === 'solo' ? 'var(--ink)' : 'var(--red)') : 'transparent', color: mode === m ? 'white' : 'var(--ink3)', whiteSpace: 'nowrap' }}>
-                {label}
-              </button>
-            ))}
-          </div>
+          {/* Model selector */}
+          <ModelSelector mode={mode} setMode={setMode} isMobile={isMobile} />
           {/* Connection status */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <div className={isConnected ? 'dot-live' : 'dot-err'} />
@@ -438,12 +400,13 @@ const send = useCallback(async () => {
           <aside style={{ width: 200, flexShrink: 0, background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
               <p style={{ fontSize: 10, fontFamily: 'var(--f-mono)', color: 'var(--ink3)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                {mode === 'multi' || mode === 'hybrid' ? 'Pipeline' : mode === 'kimi' ? 'Kimi K2.5' : 'LLaMA 70B'}
+                {mode === 'multi' ? 'Pipeline 4×' : mode.includes('-') ? `Duo · ${mode.replace('-',' + ')}` : `Solo · ${mode}`}
               </p>
             </div>
             <div style={{ flex: 1, padding: 12, display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
               {(Object.entries(AGENTS) as [AgentId, typeof AGENTS[AgentId]][]).map(([id, a]) => {
-                if ((mode === 'solo' || mode === 'kimi') && id !== 'synthesizer') return null;
+                const isSolo = mode === 'llama' || mode === 'gemini' || mode === 'openrouter';
+                if (isSolo && id !== 'synthesizer') return null;
                 const s = aStatus[id];
                 return (
                   <div key={id} style={{ padding: '10px 12px', borderRadius: 10, border: `1px solid ${s !== 'idle' ? a.color + '30' : 'var(--border)'}`, background: s !== 'idle' ? a.color + '08' : 'var(--bg)', transition: 'all 0.2s' }}>
@@ -508,7 +471,7 @@ const send = useCallback(async () => {
                     value={input}
                     onChange={e => setInput(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-                    placeholder={mode === 'multi' ? 'Multi-agent mode…' : 'Ask Sara anything — web, code, architecture…'}
+                    placeholder={mode === 'multi' ? 'Multi-agent 4× — LLaMA + Gemini + OpenRouter…' : mode.includes('-') ? `Duo ${mode} — 2 agents en parallèle…` : `Ask Sara (${mode})…`}
                     rows={isMobile ? 1 : 2}
                     disabled={loading}
                     className="sara-input"
@@ -526,7 +489,7 @@ const send = useCallback(async () => {
                 </div>
                 {!isMobile && (
                   <p style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: 'var(--ink4)', fontFamily: 'var(--f-mono)' }}>
-                    {mode === 'kimi' ? 'Kimi K2.5 · NIM' : mode === 'hybrid' ? 'Kimi K2.5 × LLaMA 3.3 70B · Hybrid' : 'LLaMA 3.3 70B · Groq'} · TinyFish · Enter ↵
+                    {mode === 'multi' ? 'LLaMA × Gemini × OpenRouter · 4 agents' : mode.includes('-') ? `${mode.replace('-',' + ')} · duo` : `${mode} · solo`} · Enter ↵
                   </p>
                 )}
               </div>
@@ -606,8 +569,105 @@ const send = useCallback(async () => {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CHAT EMPTY — suggestion cards are now clickable
+// MODEL SELECTOR — bouton + popover
 // ═══════════════════════════════════════════════════════════════════════════
+const MODE_COLORS: Record<Mode, string> = {
+  llama: '#1a1a1a', gemini: '#1a5a8b', openrouter: '#5a1a8b',
+  'llama-gemini': '#1a6a5a', 'llama-openrouter': '#4a1a6a', 'gemini-openrouter': '#2a3a8b',
+  multi: '#8b1a1a',
+};
+const MODE_LABELS: Record<Mode, { short: string; long: string; desc: string }> = {
+  llama:              { short: 'LLaMA',   long: 'LLaMA 3.3 70B',              desc: 'Groq · ultra-rapide' },
+  gemini:             { short: 'Gemini',  long: 'Gemini 2.0 Flash',           desc: 'Google AI' },
+  openrouter:         { short: 'Router',  long: 'OpenRouter',                 desc: '200+ modèles' },
+  'llama-gemini':     { short: 'L+G',     long: 'LLaMA × Gemini',            desc: 'Duo · 2 agents parallèles' },
+  'llama-openrouter': { short: 'L+R',     long: 'LLaMA × OpenRouter',        desc: 'Duo · 2 agents parallèles' },
+  'gemini-openrouter':{ short: 'G+R',     long: 'Gemini × OpenRouter',       desc: 'Duo · 2 agents parallèles' },
+  multi:              { short: '4×',      long: 'LLaMA + Gemini + OpenRouter', desc: '4 agents · synthèse LLaMA' },
+};
+
+function ModelSelector({ mode, setMode, isMobile }: { mode: Mode; setMode: (m: Mode) => void; isMobile: boolean }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const close = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, []);
+
+  const solos: Mode[] = ['llama', 'gemini', 'openrouter'];
+  const current = MODE_LABELS[mode];
+  const duos: Mode[] = ['llama-gemini', 'llama-openrouter', 'gemini-openrouter'];
+
+  function Section({ title, modes }: { title: string; modes: Mode[] }) {
+    return (
+      <div style={{ marginBottom: 12 }}>
+        <p style={{ fontSize: 9, fontWeight: 700, color: 'var(--ink4)', fontFamily: 'var(--f-mono)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6, paddingLeft: 4 }}>{title}</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {modes.map(m => {
+            const l = MODE_LABELS[m];
+            const active = mode === m;
+            return (
+              <button key={m} onClick={() => { setMode(m); setOpen(false); }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 10px', borderRadius: 8, border: active ? `1px solid ${MODE_COLORS[m]}40` : '1px solid transparent',
+                  background: active ? `${MODE_COLORS[m]}12` : 'transparent',
+                  cursor: 'pointer', textAlign: 'left', transition: 'all 0.12s', width: '100%',
+                }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: MODE_COLORS[m], flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: active ? MODE_COLORS[m] : 'var(--ink)', fontFamily: 'var(--f-body)', lineHeight: 1.2 }}>{l.long}</p>
+                  <p style={{ fontSize: 10, color: 'var(--ink4)', fontFamily: 'var(--f-mono)', lineHeight: 1.3, marginTop: 1 }}>{l.desc}</p>
+                </div>
+                {active && <span style={{ fontSize: 10, color: MODE_COLORS[m], fontFamily: 'var(--f-mono)', fontWeight: 700 }}>●</span>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: isMobile ? '5px 9px' : '6px 12px',
+          borderRadius: 8, border: `1px solid ${MODE_COLORS[mode]}40`,
+          background: `${MODE_COLORS[mode]}12`,
+          cursor: 'pointer', transition: 'all 0.15s',
+        }}>
+        <div style={{ width: 7, height: 7, borderRadius: '50%', background: MODE_COLORS[mode] }} />
+        <span style={{ fontSize: isMobile ? 10 : 12, fontWeight: 700, fontFamily: 'var(--f-mono)', color: MODE_COLORS[mode] }}>
+          {current.short}
+        </span>
+        <span style={{ fontSize: 9, color: 'var(--ink4)', transform: open ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.15s' }}>▾</span>
+      </button>
+
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+          width: 230, background: 'var(--surface)',
+          border: '1px solid var(--border)', borderRadius: 12,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.14)', zIndex: 100,
+          padding: '12px 10px',
+        }}>
+          <Section title="Solo" modes={solos} />
+          <div style={{ height: 1, background: 'var(--border)', margin: '0 4px 12px' }} />
+          <Section title="Duo — n-agent" modes={duos} />
+          <div style={{ height: 1, background: 'var(--border)', margin: '0 4px 12px' }} />
+          <Section title="Quad — 4× pipeline" modes={['multi']} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CHAT EMPTY
 function ChatEmpty({ mode, selRepos, onSelect, isMobile }: {
   mode: Mode; selRepos: Repo[]; onSelect: (text: string) => void; isMobile: boolean;
 }) {
@@ -711,6 +771,7 @@ function ChatBubble({ msg, isMobile }: { msg: Msg; isMobile: boolean }) {
             </div>
             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink2)' }}>Sara</span>
             {msg.mode === 'multi' && <span className="chip chip-red" style={{ fontSize: 10 }}>4-agent</span>}
+            {msg.mode?.includes('-') && <span className="chip chip-blue" style={{ fontSize: 10 }}>duo·{msg.mode}</span>}
             {msg.ragUsed && <span className="chip chip-green" style={{ fontSize: 10 }}>⬡ RAG</span>}
             {msg.webUsed && <span className="chip chip-blue" style={{ fontSize: 10 }}>🌐 live</span>}
             {msg.err && <span className="chip chip-ink" style={{ fontSize: 10, color: 'var(--red)' }}>error</span>}
