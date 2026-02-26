@@ -221,7 +221,11 @@ export default function Sara() {
     } catch (e: unknown) {
       if (timerRef.current) clearInterval(timerRef.current);
       resetA();
-      const m = e instanceof Error ? e.message : 'Error';
+      const raw = e instanceof Error ? e.message : 'Error';
+      const isEdgeErr = raw.toLowerCase().includes('edge function') || raw.toLowerCase().includes('failed to send');
+      const m = isEdgeErr
+        ? 'Edge Function unreachable. Causes: (1) Functions not deployed — run `npx supabase functions deploy chat`, (2) GROQ_API_KEY secret missing in Supabase Dashboard → Edge Functions → Secrets, (3) Supabase URL/key invalid in Settings.'
+        : raw;
       setErrMsg(m);
       setMsgs(p => [...p, { id: `e${Date.now()}`, role: 'sara', content: `**Error**\n\n${m}\n\n→ Check Settings`, ts: Date.now(), err: true }]);
     } finally { setLoading(false); }
