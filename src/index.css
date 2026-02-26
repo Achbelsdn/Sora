@@ -235,3 +235,27 @@ body {
 .nav-item:hover  { background: var(--s3); }
 .nav-item.active { background: var(--red-s); color: var(--red); }
 .nav-item.active svg { color: var(--red); }
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIVE AGENT STREAMING
+   ═══════════════════════════════════════════════════════════════════════════ */
+@keyframes type-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.agent-stream-text {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.agent-dots-cluster {
+  display: flex;
+  align-items: center;
+}
+.agent-dots-cluster > div {
+  transition: all 0.3s ease;
+}
