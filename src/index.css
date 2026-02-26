@@ -116,6 +116,7 @@ body {
   transition: all 0.15s;
 }
 .btn-primary:hover { background: var(--red2); transform: translateY(-1px); box-shadow: var(--shadow); }
+.btn-primary:active:not(:disabled) { transform: translateY(1px) scale(0.97); box-shadow: none; filter: brightness(0.9); }
 .btn-primary:disabled { opacity: 0.4; cursor: default; transform: none; }
 
 .btn-red {
@@ -130,6 +131,7 @@ body {
   transition: all 0.15s;
 }
 .btn-red:hover { background: var(--red2); transform: translateY(-1px); box-shadow: var(--shadow); }
+.btn-red:active:not(:disabled) { transform: translateY(1px) scale(0.97); box-shadow: none; filter: brightness(0.9); }
 .btn-red:disabled { opacity: 0.4; cursor: default; transform: none; }
 
 .btn-ghost {
@@ -144,6 +146,7 @@ body {
   transition: all 0.15s;
 }
 .btn-ghost:hover { background: var(--s3); border-color: var(--ink4); }
+.btn-ghost:active:not(:disabled) { transform: scale(0.97); filter: brightness(0.95); }
 
 /* ── Animations ──────────────────────────────────── */
 @keyframes fade-up   { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
