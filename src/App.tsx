@@ -192,7 +192,7 @@ export default function Sara() {
     setLoading(true);
     const history = msgs.slice(-cfg.contextWindow).map(m => ({ role: m.role === 'sara' ? 'assistant' : 'user', content: m.content }));
     try {
-      const fn = mode === 'multi' ? 'multiagent' : mode === 'kimi' ? 'chat-kimi' : mode === 'hybrid' ? 'multiagent-hybrid' : 'chat';
+      const fn = mode === 'multi' ? 'multiagent-hybrid' : mode === 'kimi' ? 'chat-kimi' : mode === 'hybrid' ? 'multiagent-hybrid' : 'chat';
       if (mode === 'multi' || mode === 'hybrid') {
         const order: AgentId[] = ['researcher', 'analyst', 'critic', 'synthesizer'];
         let i = 0;
