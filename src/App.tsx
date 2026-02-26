@@ -12,10 +12,17 @@ type Mode = 'llama' | 'gemini' | 'openrouter' | 'llama-gemini' | 'llama-openrout
 type AgentId = 'researcher' | 'analyst' | 'critic' | 'synthesizer';
 type AgentStatus = 'idle' | 'thinking' | 'done';
 
+interface AttachedFile {
+  id: string; name: string; type: string; size: number;
+  content: string; isImage: boolean; isText: boolean;
+  url?: string; extracting?: boolean;
+}
+
 interface Msg {
   id: string; role: 'user' | 'sara'; content: string; ts: number;
   mode?: Mode; ragUsed?: boolean; webUsed?: boolean; scrapingUsed?: boolean;
   durationMs?: number; err?: boolean; agentOutputs?: Partial<Record<AgentId, string>>;
+  files?: AttachedFile[];
 }
 interface Repo {
   id: string; owner: string; repo: string; description: string | null;
@@ -155,8 +162,9 @@ export default function Sara() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [errMsg, setErrMsg] = useState('');
   const [activeTemplate, setActiveTemplate] = useState<MarketTemplate | null>(null);
-  const endRef = useRef<HTMLDivElement>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [files, setFiles] = useState<AttachedFile[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // FIX: useMemo would be better but this avoids recreating on every render
   const sbRef = useRef<ReturnType<typeof createClient> | null>(null);
@@ -177,18 +185,130 @@ export default function Sara() {
     if (data) setRepos(data.map((r: Repo) => ({ ...r, selected: false })));
   }
 
-  const setA = (id: AgentId, s: AgentStatus) => setAStatus(p => ({ ...p, [id]: s }));
-  const resetA = () => setAStatus({ researcher: 'idle', analyst: 'idle', critic: 'idle', synthesizer: 'idle' });
+  // ── FILE EXTRACTION ──────────────────────────────────────────────────────
+  const extractFileContent = async (file: File): Promise<AttachedFile> => {
+    const id = `f${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const isImage = file.type.startsWith('image/');
+    const isText = file.type.startsWith('text/') || /\.(ts|tsx|js|jsx|py|go|rs|java|cpp|c|h|md|json|yaml|yml|toml|env|sh|sql)$/i.test(file.name);
+    const isPDF = file.type === 'application/pdf';
+    const isZip = file.type === 'application/zip' || file.name.endsWith('.zip') || file.name.endsWith('.gz');
+    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv');
+
+    if (isImage) {
+      return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = e => resolve({ id, name: file.name, type: file.type, size: file.size, content: e.target?.result as string, isImage: true, isText: false });
+        reader.readAsDataURL(file);
+      });
+    }
+
+    if (isText) {
+      return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = e => resolve({ id, name: file.name, type: file.type, size: file.size, content: e.target?.result as string, isImage: false, isText: true });
+        reader.readAsText(file);
+      });
+    }
+
+    if (isPDF) {
+      try {
+        const buf = await file.arrayBuffer();
+        const uint8 = new Uint8Array(buf);
+        // Extract raw text from PDF bytes (basic extraction)
+        const rawStr = new TextDecoder('utf-8', { fatal: false }).decode(uint8);
+        const textMatches = rawStr.match(/\(([^)]{4,500})\)/g) ?? [];
+        const text = textMatches
+          .map(m => m.slice(1, -1).replace(/\\n/g, '\n').replace(/\\r/g, '').replace(/\\/g, ''))
+          .filter(t => t.trim().length > 3 && /[a-zA-Z]/.test(t))
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .slice(0, 12000);
+        return { id, name: file.name, type: file.type, size: file.size, content: text || `[PDF: ${file.name} — contenu binaire]`, isImage: false, isText: true };
+      } catch {
+        return { id, name: file.name, type: file.type, size: file.size, content: `[PDF: ${file.name}]`, isImage: false, isText: true };
+      }
+    }
+
+    if (isExcel) {
+      try {
+        const buf = await file.arrayBuffer();
+        // Try to read as text CSV first
+        const text = new TextDecoder('utf-8', { fatal: false }).decode(buf).slice(0, 8000);
+        return { id, name: file.name, type: file.type, size: file.size, content: text, isImage: false, isText: true };
+      } catch {
+        return { id, name: file.name, type: file.type, size: file.size, content: `[Excel: ${file.name}]`, isImage: false, isText: true };
+      }
+    }
+
+    if (isZip) {
+      return { id, name: file.name, type: file.type, size: file.size, content: `[Archive: ${file.name} — ${(file.size / 1024).toFixed(0)} KB — upload vers Supabase Storage]`, isImage: false, isText: false };
+    }
+
+    // Fallback: try as text
+    try {
+      return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = e => resolve({ id, name: file.name, type: file.type, size: file.size, content: (e.target?.result as string).slice(0, 10000), isImage: false, isText: true });
+        reader.onerror = () => resolve({ id, name: file.name, type: file.type, size: file.size, content: `[Fichier: ${file.name}]`, isImage: false, isText: false });
+        reader.readAsText(file);
+      });
+    } catch {
+      return { id, name: file.name, type: file.type, size: file.size, content: `[Fichier: ${file.name}]`, isImage: false, isText: false };
+    }
+  };
+
+  const uploadFileToStorage = async (file: File, extracted: AttachedFile): Promise<string | undefined> => {
+    if (!sb) return undefined;
+    try {
+      const path = `${sessionId ?? 'anon'}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      const { error } = await sb.storage.from('sara-uploads').upload(path, file, { upsert: true });
+      if (error) return undefined;
+      const { data } = sb.storage.from('sara-uploads').getPublicUrl(path);
+      return data?.publicUrl;
+    } catch { return undefined; }
+  };
+
+  const handleFiles = async (rawFiles: FileList | File[]) => {
+    const arr = Array.from(rawFiles);
+    if (!arr.length) return;
+    const placeholders: AttachedFile[] = arr.map(f => ({
+      id: `f${Date.now()}_${f.name}`, name: f.name, type: f.type, size: f.size,
+      content: '', isImage: f.type.startsWith('image/'), isText: false, extracting: true,
+    }));
+    setFiles(p => [...p, ...placeholders]);
+    setUploading(true);
+    const results: AttachedFile[] = [];
+    for (let i = 0; i < arr.length; i++) {
+      const extracted = await extractFileContent(arr[i]);
+      const url = await uploadFileToStorage(arr[i], extracted);
+      if (url) extracted.url = url;
+      extracted.extracting = false;
+      results.push(extracted);
+    }
+    setFiles(p => p.map(f => {
+      const match = results.find(r => r.name === f.name && f.extracting);
+      return match ?? f;
+    }));
+    setUploading(false);
+    // Auto-send if input is empty
+    if (!input.trim() && results.length === 1) {
+      const autoMsg = results[0].isImage ? 'Analyse cette image et décris son contenu en détail.' : `Analyse ce fichier : ${results[0].name}`;
+      setInput(autoMsg);
+    }
+  };
 
   // ── SEND ─────────────────────────────────────────────────────────────────
   const send = useCallback(async () => {
     const text = input.trim();
-    if (!text || loading || !sb) {
+    const readyFiles = files.filter(f => !f.extracting);
+    if ((!text && !readyFiles.length) || loading || !sb) {
       if (!sb) setErrMsg('Configure Supabase dans Settings');
       return;
     }
+    const msgText = text || `Analyse ce fichier : ${readyFiles[0]?.name}`;
     setInput(''); resetA(); setErrMsg('');
-    setMsgs(p => [...p, { id: `u${Date.now()}`, role: 'user', content: text, ts: Date.now() }]);
+    setFiles([]);
+    setMsgs(p => [...p, { id: `u${Date.now()}`, role: 'user', content: msgText, ts: Date.now(), files: readyFiles.length ? readyFiles : undefined }]);
     setLoading(true);
 
     const history = msgs.slice(-cfg.contextWindow).map(m => ({
@@ -221,11 +341,19 @@ export default function Sara() {
       }
 
       const t0 = Date.now();
+      // Serialize files for edge function (limit image base64 to avoid payload limits)
+      const serializedFiles = readyFiles.map(f => ({
+        name: f.name, type: f.type, size: f.size, isImage: f.isImage, isText: f.isText,
+        content: f.isImage ? f.content.slice(0, 500000) : f.content.slice(0, 20000), // ~375KB base64 for images
+        url: f.url,
+      }));
+
       const body: Record<string, unknown> = {
-        message: text, session_id: sessionId,
+        message: msgText, session_id: sessionId,
         history, repos: repos.filter(r => r.selected).map(r => r.id),
+        files: serializedFiles.length ? serializedFiles : undefined,
       };
-      if (isDuo) body.models = mode.split('-'); // e.g. ['llama','gemini']
+      if (isDuo) body.models = mode.split('-');
 
       const { data, error } = await sb.functions.invoke(fn, { body });
 
@@ -251,7 +379,7 @@ export default function Sara() {
       setErrMsg(msg);
       setMsgs(p => [...p, { id: `e${Date.now()}`, role: 'sara', content: `**Erreur**\n\n${msg}`, ts: Date.now(), err: true }]);
     } finally { setLoading(false); }
-  }, [input, loading, mode, msgs, sb, repos, sessionId, cfg]);
+  }, [input, files, loading, mode, msgs, sb, repos, sessionId, cfg]);
   // ── ASSOCIATE ─────────────────────────────────────────────────────────────
   const associate = useCallback(async (repoOverrides?: string[], goalOverride?: string) => {
     const sel = repoOverrides ?? repos.filter(r => r.selected).map(r => r.id);
@@ -460,18 +588,58 @@ export default function Sara() {
               </div>
 
               {/* Input bar */}
-              <div style={{ flexShrink: 0, padding: isMobile ? '10px 14px 14px' : '16px 24px 20px', background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
+              <div
+                style={{ flexShrink: 0, padding: isMobile ? '10px 14px 14px' : '16px 24px 20px', background: 'var(--surface)', borderTop: '1px solid var(--border)' }}
+                onDragOver={e => { e.preventDefault(); e.currentTarget.style.background = 'var(--bg2)'; }}
+                onDragLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
+                onDrop={e => { e.preventDefault(); e.currentTarget.style.background = 'var(--surface)'; handleFiles(e.dataTransfer.files); }}
+              >
                 {errMsg && (
                   <div style={{ marginBottom: 8, padding: '8px 12px', borderRadius: 8, background: 'var(--red-s)', border: '1px solid var(--red-m)', color: 'var(--red)', fontSize: 12, fontFamily: 'var(--f-mono)', lineHeight: 1.5 }}>
                     {errMsg}
                   </div>
                 )}
+                {/* File previews */}
+                {files.length > 0 && (
+                  <div style={{ maxWidth: 780, margin: '0 auto 8px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {files.map(f => (
+                      <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px 4px 6px', borderRadius: 8, background: 'var(--bg2)', border: '1px solid var(--border)', fontSize: 12, maxWidth: 200 }}>
+                        {f.extracting ? (
+                          <Spin />
+                        ) : f.isImage ? (
+                          <img src={f.content} alt={f.name} style={{ width: 24, height: 24, borderRadius: 4, objectFit: 'cover' }} />
+                        ) : (
+                          <span style={{ fontSize: 14 }}>{f.name.endsWith('.pdf') ? '📄' : f.name.endsWith('.zip') ? '📦' : f.name.match(/\.(xls|xlsx|csv)$/) ? '📊' : '📝'}</span>
+                        )}
+                        <span style={{ fontFamily: 'var(--f-mono)', fontSize: 11, color: 'var(--ink2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{f.name}</span>
+                        {f.url && <span style={{ fontSize: 9, color: 'var(--green)', fontFamily: 'var(--f-mono)' }}>↑</span>}
+                        <button onClick={() => setFiles(p => p.filter(x => x.id !== f.id))}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink4)', fontSize: 14, lineHeight: 1, padding: '0 2px', flexShrink: 0 }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div style={{ maxWidth: 780, margin: '0 auto', display: 'flex', gap: 8 }}>
+                  {/* Hidden file input */}
+                  <input ref={fileInputRef} type="file" multiple accept="*/*" style={{ display: 'none' }}
+                    onChange={e => e.target.files && handleFiles(e.target.files)} />
+                  {/* Attach button */}
+                  <button onClick={() => fileInputRef.current?.click()} disabled={loading}
+                    style={{ padding: '0 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg2)', cursor: 'pointer', flexShrink: 0, alignSelf: 'stretch', display: 'flex', alignItems: 'center', color: files.length > 0 ? 'var(--green)' : 'var(--ink3)', fontSize: 16, transition: 'all 0.15s' }}
+                    title="Joindre un fichier (image, PDF, code, zip…)">
+                    {uploading ? <Spin /> : '📎'}
+                    {files.length > 0 && <span style={{ fontSize: 10, fontFamily: 'var(--f-mono)', color: 'var(--green)', marginLeft: 2 }}>{files.length}</span>}
+                  </button>
                   <textarea
                     value={input}
                     onChange={e => setInput(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-                    placeholder={mode === 'multi' ? 'Multi-agent 4× — LLaMA + Gemini + OpenRouter…' : mode.includes('-') ? `Duo ${mode} — 2 agents en parallèle…` : `Ask Sara (${mode})…`}
+                    onPaste={e => {
+                      const items = Array.from(e.clipboardData.items);
+                      const imageItem = items.find(i => i.type.startsWith('image/'));
+                      if (imageItem) { const f = imageItem.getAsFile(); if (f) { e.preventDefault(); handleFiles([f]); } }
+                    }}
+                    placeholder={files.length > 0 ? 'Instructions pour ce fichier… (ou Entrée pour analyse auto)' : mode === 'multi' ? 'Multi-agent 4×…' : mode.includes('-') ? `Duo ${mode}…` : `Ask Sara (${mode})…`}
                     rows={isMobile ? 1 : 2}
                     disabled={loading}
                     className="sara-input"
@@ -479,7 +647,7 @@ export default function Sara() {
                   />
                   <button
                     onClick={send}
-                    disabled={!input.trim() || loading}
+                    disabled={(!input.trim() && !files.length) || loading}
                     className="btn-primary"
                     style={{ padding: isMobile ? '0 14px' : '0 20px', display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'stretch', flexShrink: 0 }}
                   >
@@ -489,7 +657,7 @@ export default function Sara() {
                 </div>
                 {!isMobile && (
                   <p style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: 'var(--ink4)', fontFamily: 'var(--f-mono)' }}>
-                    {mode === 'multi' ? 'LLaMA × Gemini × OpenRouter · 4 agents' : mode.includes('-') ? `${mode.replace('-',' + ')} · duo` : `${mode} · solo`} · Enter ↵
+                    {mode === 'multi' ? 'LLaMA × Gemini × OpenRouter · 4 agents' : mode.includes('-') ? `${mode.replace('-',' + ')} · duo` : `${mode} · solo`} · 📎 glisser-déposer · Enter ↵
                   </p>
                 )}
               </div>
@@ -752,15 +920,21 @@ function ChatBubble({ msg, isMobile }: { msg: Msg; isMobile: boolean }) {
     <div className="anim-up">
       {isUser ? (
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <div style={{
-            maxWidth: isMobile ? '85%' : '72%',
-            padding: '12px 16px',
-            borderRadius: '16px 16px 4px 16px',
-            background: 'var(--ink)', color: 'white',
-            fontSize: 14, lineHeight: 1.6,
-            boxShadow: 'var(--shadow-sm)', wordBreak: 'break-word',
-          }}>
-            {msg.content}
+          <div style={{ maxWidth: isMobile ? '85%' : '72%', display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+            {msg.files?.length && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: 'flex-end' }}>
+                {msg.files.map(f => f.isImage ? (
+                  <img key={f.id} src={f.content} alt={f.name} style={{ maxWidth: 200, maxHeight: 150, borderRadius: 8, objectFit: 'cover' }} />
+                ) : (
+                  <div key={f.id} style={{ padding: '4px 8px', borderRadius: 8, background: 'var(--bg2)', border: '1px solid var(--border)', fontSize: 11, fontFamily: 'var(--f-mono)', color: 'var(--ink2)' }}>
+                    {f.name.endsWith('.pdf') ? '📄' : f.name.endsWith('.zip') ? '📦' : '📝'} {f.name}
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ padding: '12px 16px', borderRadius: '16px 16px 4px 16px', background: 'var(--ink)', color: 'white', fontSize: 14, lineHeight: 1.6, boxShadow: 'var(--shadow-sm)', wordBreak: 'break-word' }}>
+              {msg.content}
+            </div>
           </div>
         </div>
       ) : (
