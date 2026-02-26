@@ -1,145 +1,88 @@
-/**
- * Sara — Chat Edge Function
- * ==========================
- * Groq LLaMA 3.3 70B + RAG (pgvector) + TinyFish live web browsing
- * FIX: Added missing SCRAPLING_KNOWLEDGE import (was causing ReferenceError crash)
- */
+// ══════════════════════════════════════════════════════════════════════════
+// Sara — Frontend type definitions
+// This file is compiled by Vite/TypeScript for the browser.
+// Do NOT import Deno modules or edge function code here.
+// ══════════════════════════════════════════════════════════════════════════
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { browseWeb, extractUrls, needsWebBrowsing, formatWebResults } from "../_shared/tinyfish.ts";
-import { SCRAPLING_KNOWLEDGE } from "../_shared/scrapling.ts"; // ← FIX: was missing, caused ReferenceError on every chat request
+// ── Agent types ────────────────────────────────────────────────────────────
+export type AgentId = 'researcher' | 'analyst' | 'critic' | 'synthesizer';
+export type AgentStatus = 'idle' | 'thinking' | 'done' | 'error';
+export type AppMode = 'solo' | 'multi';
+export type TabId = 'chat' | 'repos' | 'settings';
 
-const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+export interface Agent {
+  id: AgentId;
+  name: string;
+  glyph: string;
+  color: string;
+  role: string;
+}
 
-const SYSTEM_PROMPT = `You are Sara 1.0 02B — a world-class AI assistant built on LLaMA 3.3 70B (Meta, open-source).
+export interface AgentState {
+  id: AgentId;
+  status: AgentStatus;
+  output?: string;
+  tokens?: number;
+}
 
-## Your superpowers:
-1. **LIVE WEB BROWSING** (TinyFish + Scrapling) — Access real-time data from any website. TinyFish handles JS-rendered pages. Scrapling (D4Vinci/Scrapling) provides adaptive CSS selectors, Cloudflare bypass, stealth mode. When live_web_data is provided, use it authoritatively.
-2. **GITHUB KNOWLEDGE BASE** (pgvector RAG) — Trained on thousands of GitHub repos. You know LLaMA.cpp, LangChain, Scrapling, Supabase, Pathway, SAM, Stable Diffusion, and hundreds more. Reference exact file paths and code patterns.
-3. **ADAPTIVE SCRAPING** — When users need Python scraping, use Scrapling: StealthyFetcher (anti-bot, Cloudflare bypass), DynamicFetcher (JS rendering), adaptive=True (auto-recovers from site changes), Spider (full crawls). Never recommend BeautifulSoup alone when Scrapling is superior.
-4. **MULTI-AGENT REASONING** — Researcher discovers, Architect designs, Critic challenges, Synthesizer delivers.
+// ── Chat types ──────────────────────────────────────────────────────────────
+export interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+  mode?: AppMode;
+  agentOutputs?: Partial<Record<AgentId, string>>;
+  ragUsed?: boolean;
+  durationMs?: number;
+  error?: boolean;
+}
 
-## Your persona:
-Principal engineer (FAANG-level, architecture-first) + Research polymath (cites repos, specific APIs) + Technical co-founder (product × engineering mindset)
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  createdAt?: Date | string | number;
+}
 
-## Rules:
-- When live_web_data or knowledge_base is present: USE IT. Cite source paths.
-- State filepath + purpose + dependencies BEFORE code
-- Strictly separate: frontend / backend / shared
-- Always: fully typed, production-ready, error-handled code
-- For scraping tasks: prefer Scrapling over alternatives
-- Never hallucinate. Maximum signal per token.`;
+export interface ChatSession {
+  id: string;
+  title?: string;
+  messages: ChatMessage[];
+  createdAt?: Date | string | number;
+}
 
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+export interface DebateSession {
+  id: string;
+  topic: string;
+  status: 'active' | 'completed' | 'pending';
+  createdAt?: Date | string | number;
+}
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+// ── Document types ──────────────────────────────────────────────────────────
+export type DocumentType = 'pdf' | 'doc' | 'txt' | 'markdown' | 'md' | 'pptx';
 
-  try {
-    const { message, session_id, history = [], repos = [] } = await req.json();
-    if (!message) return new Response(JSON.stringify({ error: "message required" }), { status: 400, headers: cors });
+// ── Settings ────────────────────────────────────────────────────────────────
+export interface AppSettings {
+  supabaseUrl: string;
+  supabaseAnonKey: string;
+  groqApiKey: string;
+  githubToken: string;
+  mode: AppMode;
+  temperature: number;
+  maxTokens: number;
+  activeRepos: string[];
+}
 
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const groqKey = Deno.env.get("GROQ_API_KEY");
-    const tinyfishKey = Deno.env.get("TINYFISH_API_KEY") ?? "";
-    if (!groqKey) throw new Error("GROQ_API_KEY not set in Supabase secrets");
-
-    // ── 1. TinyFish: live web browsing ────────────────────────────────
-    let webContext = "";
-    const urlsInMsg = extractUrls(message);
-    const shouldBrowse = needsWebBrowsing(message) && tinyfishKey;
-
-    if (shouldBrowse) {
-      const targets: Array<{ url: string; goal: string }> = [];
-      for (const url of urlsInMsg.slice(0, 2)) {
-        targets.push({ url, goal: `Extract relevant information for: ${message}` });
-      }
-      if (targets.length === 0 && needsWebBrowsing(message)) {
-        const inferredUrl = inferUrl(message);
-        if (inferredUrl) targets.push({ url: inferredUrl, goal: message });
-      }
-      if (targets.length > 0) {
-        const results = await Promise.all(targets.map(t => browseWeb(t.url, t.goal, tinyfishKey)));
-        webContext = formatWebResults(results);
-      }
-    }
-
-    // ── 2. RAG: GitHub knowledge base ────────────────────────────────
-    let ragContext = "";
-    try {
-      const { data: embeddingData } = await supabase.functions.invoke("embed", { body: { text: message } });
-      if (embeddingData?.embedding) {
-        const { data: chunks } = await supabase.rpc("search_chunks", {
-          query_embedding: embeddingData.embedding,
-          match_count: 5,
-          filter_repo_id: repos.length === 1 ? repos[0] : null,
-        });
-        if (chunks?.length > 0) {
-          ragContext = `\n\n<knowledge_base>\n${chunks.map((c: { source_path: string; content: string; similarity: number }) =>
-            `[${c.source_path}] (relevance ${(c.similarity * 100).toFixed(0)}%)\n${c.content}`
-          ).join("\n\n---\n\n")}\n</knowledge_base>`;
-        }
-      }
-    } catch (_) { /* embed function optional — RAG silently disabled if not deployed */ }
-
-    // ── 3. Build messages ─────────────────────────────────────────────
-    const systemContent = SYSTEM_PROMPT + SCRAPLING_KNOWLEDGE + webContext + ragContext;
-    const messages = [
-      { role: "system", content: systemContent },
-      ...history.slice(-10).map((m: { role: string; content: string }) => ({ role: m.role, content: m.content })),
-      { role: "user", content: message },
-    ];
-
-    // ── 4. Groq LLaMA 3.3 70B ─────────────────────────────────────────
-    const groqRes = await fetch(GROQ_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${groqKey}` },
-      body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages, temperature: 0.7, max_tokens: 4096 }),
-    });
-    if (!groqRes.ok) throw new Error(`Groq ${groqRes.status}: ${await groqRes.text()}`);
-    const groqData = await groqRes.json();
-    const answer = groqData.choices[0].message.content;
-
-    // ── 5. Persist session ────────────────────────────────────────────
-    let sid = session_id;
-    if (!sid) {
-      const { data: s } = await supabase.from("chat_sessions").insert({ title: message.slice(0, 60), mode: "solo" }).select().single();
-      sid = s?.id;
-    }
-    if (sid) {
-      await supabase.from("chat_messages").insert([
-        { session_id: sid, role: "user", content: message },
-        { session_id: sid, role: "assistant", content: answer, metadata: { model: "llama-3.3-70b-versatile", web_used: webContext.length > 0, rag_chunks: ragContext ? 5 : 0, usage: groqData.usage } },
-      ]);
-    }
-
-    return new Response(JSON.stringify({
-      success: true, answer, session_id: sid,
-      model: "llama-3.3-70b-versatile", provider: "groq",
-      web_used: webContext.length > 0,
-      rag_used: ragContext.length > 0,
-      usage: groqData.usage,
-    }), { headers: { ...cors, "Content-Type": "application/json" } });
-
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    return new Response(JSON.stringify({ success: false, error: msg }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
-  }
-});
-
-// Heuristic: infer best URL to browse based on message keywords
-function inferUrl(message: string): string | null {
-  const lower = message.toLowerCase();
-  if (lower.includes("amazon") || lower.includes("produit") || lower.includes("product")) return "https://www.amazon.com";
-  if (lower.includes("linkedin")) return "https://www.linkedin.com";
-  if (lower.includes("github")) return "https://github.com/trending";
-  if (lower.includes("hacker news") || lower.includes(" hn ")) return "https://news.ycombinator.com";
-  if (lower.includes("producthunt") || lower.includes("product hunt")) return "https://www.producthunt.com";
-  if (lower.includes("reddit")) return "https://www.reddit.com";
-  return null;
+// ── GitHub Repo ─────────────────────────────────────────────────────────────
+export interface GithubRepo {
+  id: string;
+  owner: string;
+  repo: string;
+  description: string | null;
+  stars: number;
+  language: string | null;
+  indexed_at: string | null;
+  chunk_count: number;
+  active?: boolean;
 }
