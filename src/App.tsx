@@ -181,56 +181,107 @@ export default function Sara() {
   const resetA = () => setAStatus({ researcher: 'idle', analyst: 'idle', critic: 'idle', synthesizer: 'idle' });
 
   // ── SEND ─────────────────────────────────────────────────────────────────
-  const send = useCallback(async () => {
-    const text = input.trim();
-    if (!text || loading || !sb) {
-      if (!sb) setErrMsg('Configure Supabase in Settings — or set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel');
-      return;
+const send = useCallback(async () => {
+  const text = input.trim();
+  if (!text || loading || !sb) {
+    if (!sb) setErrMsg('Configure Supabase in Settings');
+    return;
+  }
+
+  setInput(''); 
+  resetA(); 
+  setErrMsg('');
+  setMsgs(p => [...p, { id: `u${Date.now()}`, role: 'user', content: text, ts: Date.now() }]);
+  setLoading(true);
+
+  const history = msgs.slice(-cfg.contextWindow).map(m => ({
+    role: m.role === 'sara' ? 'assistant' : 'user', 
+    content: m.content 
+  }));
+
+  // ── Timeout + AbortController pour arrêter la boucle ─────────────────────
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 55000); // 55 secondes max
+
+  try {
+    const fn = mode === 'multi' ? 'multiagent-hybrid' 
+             : mode === 'kimi' ? 'chat-kimi' 
+             : mode === 'hybrid' ? 'multiagent-hybrid' 
+             : 'chat';
+
+    // Animation agents
+    if (mode === 'multi' || mode === 'hybrid') {
+      const order: AgentId[] = ['researcher', 'analyst', 'critic', 'synthesizer'];
+      let i = 0;
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = setInterval(() => {
+        if (i > 0) setA(order[i - 1], 'done');
+        if (i < order.length) { setA(order[i], 'thinking'); i++; }
+        else if (timerRef.current) clearInterval(timerRef.current);
+      }, 2100);
+    } else {
+      setA('synthesizer', 'thinking');
     }
-    setInput(''); resetA(); setErrMsg('');
-    setMsgs(p => [...p, { id: `u${Date.now()}`, role: 'user', content: text, ts: Date.now() }]);
-    setLoading(true);
-    const history = msgs.slice(-cfg.contextWindow).map(m => ({ role: m.role === 'sara' ? 'assistant' : 'user', content: m.content }));
-    try {
-      const fn = mode === 'multi' ? 'multiagent-hybrid' : mode === 'kimi' ? 'chat-kimi' : mode === 'hybrid' ? 'multiagent-hybrid' : 'chat';
-      if (mode === 'multi' || mode === 'hybrid') {
-        const order: AgentId[] = ['researcher', 'analyst', 'critic', 'synthesizer'];
-        let i = 0;
-        if (timerRef.current) clearInterval(timerRef.current);
-        timerRef.current = setInterval(() => {
-          if (i > 0) setA(order[i - 1], 'done');
-          if (i < order.length) { setA(order[i], 'thinking'); i++; }
-          else { if (timerRef.current) clearInterval(timerRef.current); }
-        }, 2100);
-      } else setA('synthesizer', 'thinking');
 
-      const t0 = Date.now();
-      const { data, error: fnErr } = await sb.functions.invoke(fn, {
-        body: { message: text, session_id: sessionId, history, repos: repos.filter(r => r.selected).map(r => r.id) },
-      });
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (mode === 'solo' || mode === 'kimi') setA('synthesizer', 'done');
-      else (Object.keys(AGENTS) as AgentId[]).forEach(k => setA(k, 'done'));
-      if (fnErr) throw new Error(fnErr.message);
-      if (data?.session_id) setSessionId(data.session_id);
-      setMsgs(p => [...p, {
-        id: `s${Date.now()}`, role: 'sara', content: data?.answer ?? 'No response', ts: Date.now(), mode,
-        ragUsed: data?.rag_used, webUsed: data?.web_used, durationMs: Date.now() - t0,
-        agentOutputs: (mode === 'multi' || mode === 'hybrid') ? { researcher: data?.researcher_findings, analyst: data?.analyst_analysis, critic: data?.critic_critique, synthesizer: data?.answer } : undefined,
-      }]);
-    } catch (e: unknown) {
-      if (timerRef.current) clearInterval(timerRef.current);
-      resetA();
-      const raw = e instanceof Error ? e.message : 'Error';
-      const isEdgeErr = raw.toLowerCase().includes('edge function') || raw.toLowerCase().includes('failed to send');
-      const m = isEdgeErr
-        ? 'Edge Function unreachable. Causes: (1) Functions not deployed — run `npx supabase functions deploy chat`, (2) GROQ_API_KEY secret missing in Supabase Dashboard → Edge Functions → Secrets, (3) Supabase URL/key invalid in Settings.'
-        : raw;
-      setErrMsg(m);
-      setMsgs(p => [...p, { id: `e${Date.now()}`, role: 'sara', content: `**Error**\n\n${m}\n\n→ Check Settings`, ts: Date.now(), err: true }]);
-    } finally { setLoading(false); }
-  }, [input, loading, mode, msgs, sb, repos, sessionId, cfg]);
+    const t0 = Date.now();
 
+    const { data, error: fnErr } = await sb.functions.invoke(fn, {
+      body: { 
+        message: text, 
+        session_id: sessionId, 
+        history, 
+        repos: repos.filter(r => r.selected).map(r => r.id) 
+      },
+      signal: controller.signal   // ← IMPORTANT : permet d’annuler
+    });
+
+    clearTimeout(timeoutId);
+    if (timerRef.current) clearInterval(timerRef.current);
+
+    if (mode === 'solo' || mode === 'kimi') setA('synthesizer', 'done');
+    else (Object.keys(AGENTS) as AgentId[]).forEach(k => setA(k, 'done'));
+
+    if (fnErr) throw new Error(fnErr.message);
+
+    if (data?.session_id) setSessionId(data.session_id);
+
+    setMsgs(p => [...p, {
+      id: `s${Date.now()}`, 
+      role: 'sara', 
+      content: data?.answer ?? 'No response', 
+      ts: Date.now(), 
+      mode,
+      ragUsed: data?.rag_used, 
+      webUsed: data?.web_used, 
+      durationMs: Date.now() - t0,
+      agentOutputs: (mode === 'multi' || mode === 'hybrid') 
+        ? { researcher: data?.researcher_findings, analyst: data?.analyst_analysis, critic: data?.critic_critique, synthesizer: data?.answer } 
+        : undefined,
+    }]);
+
+  } catch (e: any) {
+    clearTimeout(timeoutId);
+    if (timerRef.current) clearInterval(timerRef.current);
+    resetA();
+
+    const isTimeout = e.name === 'AbortError' || e.message?.includes('abort');
+    const m = isTimeout 
+      ? "⏳ Kimi a mis trop de temps (timeout 55s). Essaie en mode Solo LLaMA ou réessaie plus tard."
+      : (e instanceof Error ? e.message : 'Erreur inconnue');
+
+    setErrMsg(m);
+    setMsgs(p => [...p, { 
+      id: `e${Date.now()}`, 
+      role: 'sara', 
+      content: `**Erreur**\n\n${m}\n\n→ Essaie en mode LLaMA`, 
+      ts: Date.now(), 
+      err: true 
+    }]);
+
+  } finally {
+    setLoading(false);
+  }
+}, [input, loading, mode, msgs, sb, repos, sessionId, cfg]);
   // ── ASSOCIATE ─────────────────────────────────────────────────────────────
   const associate = useCallback(async (repoOverrides?: string[], goalOverride?: string) => {
     const sel = repoOverrides ?? repos.filter(r => r.selected).map(r => r.id);
