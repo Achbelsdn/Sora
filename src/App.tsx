@@ -238,7 +238,7 @@ export default function Sara() {
     const pt = setInterval(() => { pi++; if (pi < phases.length) setAssocPhase(phases[pi]); else clearInterval(pt); }, 4000);
     try {
       const { data, error: fnErr } = await sb.functions.invoke('associate', {
-        body: { repo_ids: sel, custom_goal: goalOverride ?? assocGoal || undefined },
+        body: { repo_ids: sel, custom_goal: (goalOverride ?? assocGoal) || undefined },
       });
       clearInterval(pt);
       if (fnErr) throw new Error(fnErr.message);
