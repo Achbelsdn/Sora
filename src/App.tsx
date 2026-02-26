@@ -8,7 +8,7 @@ marked.setOptions({ breaks: true, gfm: true });
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type Tab = 'chat' | 'market' | 'repos' | 'settings';
-type Mode = 'solo' | 'multi';
+type Mode = 'solo' | 'multi' | 'kimi' | 'hybrid';
 type AgentId = 'researcher' | 'analyst' | 'critic' | 'synthesizer';
 type AgentStatus = 'idle' | 'thinking' | 'done';
 
@@ -192,8 +192,8 @@ export default function Sara() {
     setLoading(true);
     const history = msgs.slice(-cfg.contextWindow).map(m => ({ role: m.role === 'sara' ? 'assistant' : 'user', content: m.content }));
     try {
-      const fn = mode === 'solo' ? 'chat' : 'multiagent';
-      if (mode === 'multi') {
+      const fn = mode === 'multi' ? 'multiagent' : mode === 'kimi' ? 'chat-kimi' : mode === 'hybrid' ? 'multiagent-hybrid' : 'chat';
+      if (mode === 'multi' || mode === 'hybrid') {
         const order: AgentId[] = ['researcher', 'analyst', 'critic', 'synthesizer'];
         let i = 0;
         if (timerRef.current) clearInterval(timerRef.current);
@@ -209,14 +209,14 @@ export default function Sara() {
         body: { message: text, session_id: sessionId, history, repos: repos.filter(r => r.selected).map(r => r.id) },
       });
       if (timerRef.current) clearInterval(timerRef.current);
-      if (mode === 'solo') setA('synthesizer', 'done');
+      if (mode === 'solo' || mode === 'kimi') setA('synthesizer', 'done');
       else (Object.keys(AGENTS) as AgentId[]).forEach(k => setA(k, 'done'));
       if (fnErr) throw new Error(fnErr.message);
       if (data?.session_id) setSessionId(data.session_id);
       setMsgs(p => [...p, {
         id: `s${Date.now()}`, role: 'sara', content: data?.answer ?? 'No response', ts: Date.now(), mode,
         ragUsed: data?.rag_used, webUsed: data?.web_used, durationMs: Date.now() - t0,
-        agentOutputs: mode === 'multi' ? { researcher: data?.researcher_findings, analyst: data?.analyst_analysis, critic: data?.critic_critique, synthesizer: data?.answer } : undefined,
+        agentOutputs: (mode === 'multi' || mode === 'hybrid') ? { researcher: data?.researcher_findings, analyst: data?.analyst_analysis, critic: data?.critic_critique, synthesizer: data?.answer } : undefined,
       }]);
     } catch (e: unknown) {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -359,10 +359,10 @@ export default function Sara() {
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 12 }}>
           {/* Mode toggle */}
           <div style={{ display: 'flex', background: 'var(--bg2)', padding: 3, borderRadius: 8, gap: 2 }}>
-            {(['solo', 'multi'] as Mode[]).map(m => (
+            {([['solo', 'LLaMA'], ['kimi', 'Kimi'], ['hybrid', 'K+L'], ['multi', '4×']] as [Mode, string][]).map(([m, label]) => (
               <button key={m} onClick={() => setMode(m)}
-                style={{ padding: isMobile ? '4px 8px' : '5px 12px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: isMobile ? 10 : 12, fontWeight: 600, fontFamily: 'var(--f-mono)', transition: 'all 0.15s', background: mode === m ? (m === 'solo' ? 'var(--ink)' : 'var(--red)') : 'transparent', color: mode === m ? 'white' : 'var(--ink3)', whiteSpace: 'nowrap' }}>
-                {m === 'solo' ? 'Solo' : '4×'}
+                style={{ padding: isMobile ? '4px 7px' : '5px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: isMobile ? 9 : 11, fontWeight: 600, fontFamily: 'var(--f-mono)', transition: 'all 0.15s', background: mode === m ? (m === 'kimi' ? '#1a5a8b' : m === 'hybrid' ? '#5a1a8b' : m === 'solo' ? 'var(--ink)' : 'var(--red)') : 'transparent', color: mode === m ? 'white' : 'var(--ink3)', whiteSpace: 'nowrap' }}>
+                {label}
               </button>
             ))}
           </div>
@@ -386,12 +386,12 @@ export default function Sara() {
           <aside style={{ width: 200, flexShrink: 0, background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
               <p style={{ fontSize: 10, fontFamily: 'var(--f-mono)', color: 'var(--ink3)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                {mode === 'multi' ? 'Pipeline' : 'Engine'}
+                {mode === 'multi' || mode === 'hybrid' ? 'Pipeline' : mode === 'kimi' ? 'Kimi K2.5' : 'LLaMA 70B'}
               </p>
             </div>
             <div style={{ flex: 1, padding: 12, display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
               {(Object.entries(AGENTS) as [AgentId, typeof AGENTS[AgentId]][]).map(([id, a]) => {
-                if (mode === 'solo' && id !== 'synthesizer') return null;
+                if ((mode === 'solo' || mode === 'kimi') && id !== 'synthesizer') return null;
                 const s = aStatus[id];
                 return (
                   <div key={id} style={{ padding: '10px 12px', borderRadius: 10, border: `1px solid ${s !== 'idle' ? a.color + '30' : 'var(--border)'}`, background: s !== 'idle' ? a.color + '08' : 'var(--bg)', transition: 'all 0.2s' }}>
@@ -474,7 +474,7 @@ export default function Sara() {
                 </div>
                 {!isMobile && (
                   <p style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: 'var(--ink4)', fontFamily: 'var(--f-mono)' }}>
-                    LLaMA 3.3 70B · Scrapling · TinyFish · Enter to send · Shift+Enter for newline
+                    {mode === 'kimi' ? 'Kimi K2.5 · NIM' : mode === 'hybrid' ? 'Kimi K2.5 × LLaMA 3.3 70B · Hybrid' : 'LLaMA 3.3 70B · Groq'} · TinyFish · Enter ↵
                   </p>
                 )}
               </div>
