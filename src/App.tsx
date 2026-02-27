@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { marked } from 'marked';
 import { useIsMobile } from './hooks/use-mobile';
