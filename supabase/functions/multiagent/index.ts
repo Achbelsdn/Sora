@@ -2,15 +2,11 @@
  * Sara — Multi-Agent Edge Function
  * ==================================
  * 4 agents × Groq LLaMA 3.3 70B
- * + TinyFish live web browsing (Researcher agent)
- * + pgvector RAG
- * Absorbed: github.com/tinyfish-io/tinyfish-cookbook
+ * + pgvector RAG (GitHub knowledge base)
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { browseMultiple, extractUrls, needsWebBrowsing, formatWebResults } from "../_shared/tinyfish.ts";
-import { SCRAPLING_KNOWLEDGE } from "../_shared/scrapling.ts";
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
@@ -44,26 +40,11 @@ serve(async (req) => {
     if (!message) return new Response(JSON.stringify({ error: "message required" }), { status: 400, headers: cors });
 
     const groqKey = Deno.env.get("GROQ_API_KEY");
-    const tinyfishKey = Deno.env.get("TINYFISH_API_KEY") ?? "";
     if (!groqKey) throw new Error("GROQ_API_KEY not set");
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    // ── 0. TinyFish: Researcher browses the live web ──────────────────
-    let webContext = "";
-    if (tinyfishKey && needsWebBrowsing(message)) {
-      const urlsInMsg = extractUrls(message);
-      const targets = urlsInMsg.length > 0
-        ? urlsInMsg.slice(0, 3).map(url => ({ url, goal: `Extract key information for: ${message}` }))
-        : [];
-
-      if (targets.length > 0) {
-        const results = await browseMultiple(targets, tinyfishKey);
-        webContext = formatWebResults(results);
-      }
-    }
-
-    // ── 0b. RAG context ───────────────────────────────────────────────
+    // ── 0. RAG context ───────────────────────────────────────────────
     let ragContext = "";
     try {
       const { data: emb } = await supabase.functions.invoke("embed", { body: { text: message } });
@@ -78,15 +59,14 @@ serve(async (req) => {
       }
     } catch (_) {}
 
-    const baseQuery = `TASK: ${message}${webContext}${ragContext}${SCRAPLING_KNOWLEDGE.slice(0, 800)}`;
+    const baseQuery = `TASK: ${message}${ragContext}`;
 
     // ── AGENT 1: RESEARCHER ───────────────────────────────────────────
     const research = await groq(groqKey,
-      `You are Sara's Researcher agent. You have access to live web data (TinyFish) and GitHub knowledge.
+      `You are Sara's Researcher agent. You have access to an indexed GitHub knowledge base (RAG).
       
 MISSION: Phase 1 (Discovery) + Phase 2 (Planning)
 - Identify the REAL need behind the request
-- Use live_web_data if provided — it's real-time and authoritative
 - Use github knowledge_base to ground technical recommendations
 - Identify required services, APIs, dependencies
 - Challenge assumptions. What's the actual problem?
@@ -104,7 +84,7 @@ MISSION: Deep technical analysis + design
 - Identify patterns, risks, complexity
 - Reference specific code from github knowledge if available
 - 200-300 words, precise.`,
-      `TASK: ${message}${webContext}${ragContext}\n\n<researcher>\n${research}\n</researcher>`,
+      `TASK: ${message}${ragContext}\n\n<researcher>\n${research}\n</researcher>`,
       1200
     );
 
@@ -128,13 +108,12 @@ MISSION: Find what they missed
 
 MISSION: Deliver the definitive, production-ready answer
 - Integrate all 3 agents, resolve conflicts clearly
-- Use live web data if present (it overrides training data)
 - Include exact steps, ready-to-run code if needed
 - Deployment notes
 - End with: v2 improvements (3 bullet points)
 
 This is what the user sees. Make it outstanding. Use markdown.`,
-      `TASK: ${message}${webContext}${ragContext}\n\n<researcher>\n${research}\n</researcher>\n\n<analyst>\n${analysis}\n</analyst>\n\n<critic>\n${critique}\n</critic>`,
+      `TASK: ${message}${ragContext}\n\n<researcher>\n${research}\n</researcher>\n\n<analyst>\n${analysis}\n</analyst>\n\n<critic>\n${critique}\n</critic>`,
       2500
     );
 
@@ -151,7 +130,7 @@ This is what the user sees. Make it outstanding. Use markdown.`,
         { session_id: sid, role: "user", content: message },
         { session_id: sid, role: "assistant", content: synthesis, metadata: {
           mode: "multiagent", model: "llama-3.3-70b-versatile",
-          duration_seconds: duration, web_used: webContext.length > 0, rag_used: ragContext.length > 0,
+          duration_seconds: duration, rag_used: ragContext.length > 0,
           agents: { research, analysis, critique }
         }},
       ]);
@@ -161,7 +140,7 @@ This is what the user sees. Make it outstanding. Use markdown.`,
       success: true, answer: synthesis,
       researcher_findings: research, analyst_analysis: analysis, critic_critique: critique,
       session_id: sid, model: "llama-3.3-70b-versatile", provider: "groq",
-      duration_seconds: duration, web_used: webContext.length > 0, rag_used: ragContext.length > 0,
+      duration_seconds: duration, rag_used: ragContext.length > 0,
       agents_ran: 4,
     }), { headers: { ...cors, "Content-Type": "application/json" } });
 

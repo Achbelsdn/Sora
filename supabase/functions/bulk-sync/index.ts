@@ -17,7 +17,7 @@ const cors = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// ── Top repos presets (from the top 20 Jupyter/AI repos + Scrapling) ────────
+// ── Top repos presets ────────────────────────────────────────────────────────
 const PRESETS: Record<string, Array<{ owner: string; repo: string }>> = {
   top20: [
     { owner: "jackfrued", repo: "Python-100-Days" },
@@ -42,8 +42,6 @@ const PRESETS: Record<string, Array<{ owner: string; repo: string }>> = {
     { owner: "anthropics", repo: "claude-cookbooks" },
   ],
   scraping: [
-    { owner: "D4Vinci", repo: "Scrapling" },
-    { owner: "tinyfish-io", repo: "tinyfish-cookbook" },
     { owner: "scrapy", repo: "scrapy" },
     { owner: "microsoft", repo: "playwright" },
     { owner: "puppeteer", repo: "puppeteer" },
