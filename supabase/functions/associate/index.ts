@@ -2,13 +2,11 @@
  * Sara — Association Engine
  * ==========================
  * Takes 2-5 GitHub repos → generates a complete working service.
- * Now powered by TinyFish: browses live docs/demos of each repo.
- * Absorbed: github.com/tinyfish-io/tinyfish-cookbook
+ * Powered by pgvector RAG — uses indexed GitHub chunks for repo analysis.
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { browseWeb, formatWebResults } from "../_shared/tinyfish.ts";
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const cors = {
@@ -37,7 +35,6 @@ serve(async (req) => {
     if (!repo_ids || repo_ids.length < 1) return new Response(JSON.stringify({ error: "At least 1 repo_id required" }), { status: 400, headers: cors });
 
     const groqKey = Deno.env.get("GROQ_API_KEY");
-    const tinyfishKey = Deno.env.get("TINYFISH_API_KEY") ?? "";
     if (!groqKey) throw new Error("GROQ_API_KEY not set");
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -52,29 +49,17 @@ serve(async (req) => {
       chunksByRepo[repo.id] = (chunks || []).map((c) => `[${c.source_path}]\n${c.content.slice(0, 600)}`);
     }
 
-    // ── 2. TinyFish: browse live GitHub pages for each repo ───────────
-    let liveWebContext = "";
-    if (tinyfishKey) {
-      const browseTargets = repos.map(r => ({
-        url: `https://github.com/${r.owner}/${r.repo}`,
-        goal: `Extract: main purpose, key features, primary exports/APIs, integration patterns, example usage. Format as structured summary.`,
-      }));
-      const webResults = await Promise.all(browseTargets.map(t => browseWeb(t.url, t.goal, tinyfishKey, 20000)));
-      liveWebContext = formatWebResults(webResults.filter(r => r.success));
-    }
-
     const repoSummary = repos.map((r) => {
       const chunks = chunksByRepo[r.id] || [];
       return `### ${r.owner}/${r.repo} (★${r.stars?.toLocaleString() || 0} | ${r.language || "?"})\n${r.description || ""}\n\nIndexed content:\n${chunks.join("\n---\n").slice(0, 1000)}`;
     }).join("\n\n========\n\n");
 
     const goalLine = custom_goal ? `\nUser goal: "${custom_goal}"` : "";
-    const fullContext = `${repoSummary}${liveWebContext}${goalLine}`;
+    const fullContext = `${repoSummary}${goalLine}`;
 
     // ── 3. RESEARCHER: Deep analysis ──────────────────────────────────
     const research = await groq(groqKey,
-      `You are Sara's Researcher. Analyze these GitHub repos deeply.
-Use any live_web_data provided — it's real-time from the actual repo pages.
+      `You are Sara's Researcher. Analyze these GitHub repos deeply using the indexed chunks.
 For each repo: PURPOSE | KEY EXPORTS/APIs | INTEGRATION POINTS | IDEAL COMBINATIONS
 Be specific about functions, hooks, CLI commands, SDK methods exposed.`,
       `Analyze these repos:\n${fullContext}`, 1400
@@ -93,7 +78,7 @@ ARCHITECTURE:
   ...
 DATA FLOW: [how data moves between layers]
 WHY IT WORKS: [technical reasoning]`,
-      `Repos: ${repos.map(r => `${r.owner}/${r.repo}: ${r.description}`).join("\n")}\n\nResearcher:\n${research}${liveWebContext}${goalLine}`, 1200
+      `Repos: ${repos.map(r => `${r.owner}/${r.repo}: ${r.description}`).join("\n")}\n\nResearcher:\n${research}${goalLine}`, 1200
     );
 
     // ── 5. SYNTHESIZER: Generate real starter code ────────────────────
@@ -106,7 +91,7 @@ Rules:
 - Fully typed TypeScript or Python
 - Package.json deps at the end
 - Markdown code block with language tag`,
-      `Architecture:\n${architecture}\n\nRepos: ${repos.map(r => `${r.owner}/${r.repo}`).join(", ")}${liveWebContext}${goalLine}`, 2500
+      `Architecture:\n${architecture}\n\nRepos: ${repos.map(r => `${r.owner}/${r.repo}`).join(", ")}${goalLine}`, 2500
     );
 
     // ── 6. STRATEGIST: Deploy guide ───────────────────────────────────
@@ -132,7 +117,6 @@ Write a concise deploy guide:
       repos_combined: repos.map(r => ({ owner: r.owner, repo: r.repo, stars: r.stars, language: r.language })),
       research, architecture, starter_code: starterCode, deployment_strategy: strategy,
       duration_seconds: (Date.now() - t0) / 1000,
-      live_web_used: liveWebContext.length > 0,
     }), { headers: { ...cors, "Content-Type": "application/json" } });
 
   } catch (err: unknown) {
