@@ -17,6 +17,7 @@ const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 // ── Groq helper ────────────────────────────────────────────────────────────
