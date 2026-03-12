@@ -1304,8 +1304,8 @@ function ChatInputBar({ input, setInput, files, setFiles, loading, uploading, mo
   files: AttachedFile[]; setFiles: (fn: (p: AttachedFile[]) => AttachedFile[]) => void;
   loading: boolean; uploading: boolean;
   mode: Mode; errMsg: string; isMobile: boolean;
-  inputRef: React.RefObject<HTMLTextAreaElement>;
-  fileInputRef: React.RefObject<HTMLInputElement>;
+  inputRef: React.RefObject<HTMLTextAreaElement | null>;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
   onSend: () => void; onHandleFiles: (f: FileList | File[]) => void;
   msgCount: number; onExportMd: () => void; onExportJson: () => void;
 }) {
